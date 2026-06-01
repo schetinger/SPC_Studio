@@ -46,9 +46,14 @@ class GeradorCEP(APIView):
                                                             x0=intervalo_probabilidade.get('x0'))
                 return GerarRelatorioXr(nova_carta)
 
-                
             elif tipo_carta == "IMR":
-                nova_carta = imr.objects.create(data=dados_medicao)
+                nova_carta = imr.objects.create(
+                    data=dados_medicao,
+                    lse=especificacoes.get('LSE', 0),
+                    lie=especificacoes.get('LIE', 0),
+                    x1=intervalo_probabilidade.get('x1', 0),
+                    x0=intervalo_probabilidade.get('x0', 0)
+                )
                 return GerarRelatorioIMR(nova_carta)
             
             elif tipo_carta =="u":

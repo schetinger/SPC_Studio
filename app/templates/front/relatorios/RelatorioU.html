@@ -28,6 +28,95 @@
         <h3>Gráfico de Controle</h3>
         <img src="data:image/png;base64,{{ grafico }}" width="500">
     </div>
+
+    {% if carta.alertas.regra_1_fora_controle %}
+    <div class="alerta-box">
+        <h4>⚠️ Alerta: Pontos Fora dos Limites (Regra 1)</h4>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Ordem da Amostra</th>
+                    <th>Motivo da Falha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for amostra in carta.alertas.regra_1_fora_controle %}
+                <tr>
+                    <td>Amostra {{ amostra }}</td>
+                    <td>Ponto além de 3 desvios padrões (Fora de Controle)</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if carta.alertas.regra_2_alerta_zona_a %}
+    <div class="alerta-box">
+        <h4>⚠️ Atenção: Tendência de saída (Regra 2)</h4>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Ordem da Amostra</th>
+                    <th>Motivo da Falha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for amostra in carta.alertas.regra_2_alerta_zona_a %}
+                <tr>
+                    <td>Amostra {{ amostra }}</td>
+                    <td>2 de 3 pontos consecutivos do mesmo lado da linha central</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if carta.alertas.regra_3_tendencia %}
+    <div class="alerta-box">
+        <h4>⚠️ Atenção: Maior Tendência de saída (Regra 3)</h4>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Ordem da Amostra</th>
+                    <th>Motivo da Falha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for amostra in carta.alertas.regra_3_tendencia %}
+                <tr>
+                    <td>Amostra {{ amostra }}</td>
+                    <td>4 de 5 pontos consecutivos do mesmo lado da linha central</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if carta.alertas.regra_4_deslocamento %}
+    <div class="alerta-box">
+        <h4>⚠️ Atenção: Enorme Tendência de deslocamento (Regra 4)</h4>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Ordem da Amostra</th>
+                    <th>Motivo da Falha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for amostra in carta.alertas.regra_4_deslocamento %}
+                <tr>
+                    <td>Amostra {{ amostra }}</td>
+                    <td>8 pontos consecutivos do mesmo lado da linha central</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     <table>
         <thead>
             <tr>
