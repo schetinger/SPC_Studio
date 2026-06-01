@@ -1,56 +1,211 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Relatório CEP</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>SPC IDE - Statistical Process Control</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-main: #0D1117;
+            --bg-sidebar: #161B22;
+            --bg-card: #21262D;
+            --bg-input: #010409;
+            --text-primary: #C9D1D9;
+            --text-secondary: #8B949E;
+            --accent: #58A6FF;
+            --accent-hover: #3182CE;
+            --border: #30363D;
+            --success: #3FB950;
+            --danger: #F85149;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar { width: 260px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 16px; z-index: 10; }
+        .sidebar-logo { font-size: 1.2rem; font-weight: 700; color: #FFF; display: flex; align-items: center; gap: 12px; margin-bottom: 40px; padding-left: 8px; }
+        .sidebar-logo svg { color: var(--accent); }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 6px; color: var(--text-secondary); text-decoration: none; font-weight: 500; transition: all 0.2s ease; margin-bottom: 8px; cursor: pointer; }
+        .nav-item:hover { background-color: rgba(139, 148, 158, 0.1); color: var(--text-primary); }
+        .nav-item.active { background-color: rgba(88, 166, 255, 0.15); color: var(--accent); }
+        .nav-item.disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Main Content */
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; }
+        .header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 32px; background-color: var(--bg-main); }
+        .header h1 { font-size: 1rem; font-weight: 600; }
+
+        /* Split Screen */
+        .workflow-container { display: flex; flex: 1; overflow: hidden; }
+        .panel { display: flex; flex-direction: column; padding: 32px; height: 100%; overflow-y: auto; }
+        .panel-left { flex: 1; max-width: 450px; border-right: 1px solid var(--border); background-color: var(--bg-main); }
+        .panel-header { margin-bottom: 16px; }
+        .panel-header h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+
+        /* Editor */
+        .editor-container { flex: 1; background-color: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; position: relative; display: flex; flex-direction: column; }
+        .editor-header { height: 40px; background-color: var(--bg-sidebar); border-bottom: 1px solid var(--border); border-radius: 8px 8px 0 0; display: flex; align-items: center; padding: 0 16px; font-size: 0.85rem; color: var(--text-secondary); gap: 8px; }
+        .editor-header span { background-color: rgba(88, 166, 255, 0.1); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
+        textarea { flex: 1; background: transparent; border: none; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.5; padding: 16px; resize: none; outline: none; }
+        
+        /* Buttons */
+        .btn-primary { margin-top: 24px; background-color: var(--accent); color: #000; border: none; padding: 14px 24px; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s, transform 0.1s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        /* Output Panel */
+        .panel-right { flex: 2; background-color: #0A0D12; display: flex; flex-direction: column; }
+        .empty-state { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--text-secondary); }
+        .empty-state svg { width: 64px; height: 64px; margin-bottom: 24px; color: var(--border); }
+        .empty-state h3 { font-size: 1.2rem; color: var(--text-primary); margin-bottom: 8px; }
+        .empty-state p { max-width: 300px; line-height: 1.5; }
+
+        /* Status & Utilities */
+        .status-msg { margin-top: 16px; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
+        .status-msg.success { color: var(--success); }
+        .status-msg.error { color: var(--danger); }
+        .hidden { display: none !important; }
+
+        /* PDF Viewer */
+        #pdfPreview { width: 100%; height: 100%; border: none; border-radius: 8px; background-color: #fff; display: none; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+        .quick-actions { display: flex; gap: 12px; margin-top: 16px; }
+        .btn-secondary { background-color: var(--bg-sidebar); color: var(--text-primary); border: 1px solid var(--border); padding: 10px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-secondary:hover { background-color: var(--bg-card); border-color: var(--text-secondary); }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-6">
+<body>
 
-    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
-        <h1 class="text-2xl font-bold text-gray-800 mb-2">Gerador de Relatório CEP</h1>
-        <p class="text-gray-600 mb-6">Cole o JSON com as amostras abaixo para gerar e baixar o relatório em PDF.</p>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 20h20"/>
+                <path d="M5 20V8l5-3 5 5 5-7v17"/>
+            </svg>
+            SPC Studio
+        </div>
 
-        <textarea id="jsonInput" rows="10" 
-            class="w-full p-4 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none mb-4"
-            placeholder='{
-    "1": [50.5],
-    "2": [49.8],
-    "3": [50.2]
+        <nav>
+            <div class="nav-item active">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Novo Relatório
+            </div>
+            <!-- Features futuras (Mock visual) -->
+            <div class="nav-item disabled" title="Em breve">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Histórico
+            </div>
+            <div class="nav-item disabled" title="Em breve">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Configurações
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="header">
+            <h1>Workspace / <span style="color:var(--text-secondary)">Gerador de Relatório CEP</span></h1>
+        </header>
+
+        <div class="workflow-container">
+            
+            <!-- Input Panel -->
+            <section class="panel panel-left">
+                <div class="panel-header">
+                    <h2>Dados de Entrada</h2>
+                </div>
+                
+                <div class="editor-container">
+                    <div class="editor-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        input_data.json
+                        <span>JSON</span>
+                    </div>
+                    <textarea id="jsonInput" spellcheck="false" placeholder='{
+    "chart": "Xr",
+    "measurements": {
+        "A1": [10.1, 10.3, 9.8, 10.0],
+        "A2": [9.9, 10.5, 10.1, 9.7]
+    },
+    "especificacoes": {"LSE": 11.0, "LIE": 9.0},
+    "intervalo_probabilidade": {"x1": 10.5, "x0": 9.5}
 }'></textarea>
+                </div>
 
-        <div id="statusMessage" class="hidden mb-4 text-sm font-semibold"></div>
+                <div id="statusMessage" class="status-msg hidden"></div>
 
-        <button id="btnGerar" onclick="enviarDados()" 
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex justify-center items-center">
-            <span>Gerar e Baixar PDF</span>
-        </button>
-    </div>
+                <button id="btnGerar" onclick="enviarDados()" class="btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Gerar Relatório
+                </button>
+            </section>
+
+            <!-- Output Panel -->
+            <section class="panel panel-right">
+                
+                <!-- Empty State Inicial -->
+                <div id="emptyState" class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                    <h3>Nenhum relatório gerado</h3>
+                    <p>Cole o JSON com as amostras à esquerda e clique em Gerar para visualizar a análise SPC aqui.</p>
+                </div>
+
+                <!-- PDF Preview -->
+                <iframe id="pdfPreview" title="Relatório PDF"></iframe>
+                
+                <!-- Quick Actions (Aparecem após gerar) -->
+                <div id="postActions" class="quick-actions hidden">
+                    <a id="btnDownload" href="#" download="relatorio_cep.pdf" class="btn-secondary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Baixar Arquivo
+                    </a>
+                </div>
+
+            </section>
+        </div>
+    </main>
 
     <script>
         async function enviarDados() {
             const btn = document.getElementById('btnGerar');
             const status = document.getElementById('statusMessage');
             const jsonText = document.getElementById('jsonInput').value;
+            const emptyState = document.getElementById('emptyState');
+            const pdfPreview = document.getElementById('pdfPreview');
+            const postActions = document.getElementById('postActions');
+            const btnDownload = document.getElementById('btnDownload');
             
-            // Limpa mensagens anteriores e muda o estado do botão
-            status.className = "hidden mb-4 text-sm font-semibold";
-            btn.innerHTML = 'Gerando... aguarde';
+            // UI Feedback state
+            status.className = "status-msg hidden";
+            btn.innerHTML = '<svg class="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Gerando...';
             btn.disabled = true;
-            btn.classList.add('opacity-70', 'cursor-not-allowed');
 
             try {
-                // 1. Valida se o que foi colado é realmente um JSON
-                const payload = JSON.parse(jsonText);
+                // Parse and validate JSON
+                const payload = JSON.parse(jsonText || document.getElementById('jsonInput').placeholder);
 
-                // 2. Faz a requisição POST para a sua API
-                // ATENÇÃO: Troque a URL abaixo para a rota correta do seu Django
-                const response = await fetch('http://localhost:8000/carta/gerar-carta/', {
+                // Fetch API
+                const response = await fetch('/carta/gerar-carta/', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
@@ -58,43 +213,38 @@
                     throw new Error(`Erro na API: ${response.statusText}`);
                 }
 
-                // 3. A MÁGICA DO PDF: Transforma a resposta em um arquivo binário (Blob)
                 const blob = await response.blob();
-                
-                // 4. Cria um link temporário e força o clique para baixar
                 const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
-                //const a = document.createElement('a');
-                //a.style.display = 'none';
-                //a.href = url;
-                //a.download = 'relatorio_cep.pdf'; // Nome do arquivo que será salvo
-                //document.body.appendChild(a);
-                //a.click();
                 
-                // Limpeza do link temporário
-                //window.URL.revokeObjectURL(url);
-                //document.body.removeChild(a);
+                // Transition UI state to Show PDF
+                emptyState.classList.add('hidden');
+                
+                pdfPreview.src = url + "#toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+                pdfPreview.style.display = 'block';
+                
+                btnDownload.href = url;
+                postActions.classList.remove('hidden');
 
-                // Mensagem de sucesso
-                status.innerText = "PDF gerado e baixado com sucesso!";
-                status.classList.add('text-green-600', 'block');
-                status.classList.remove('hidden');
+                // Success Message
+                status.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Gerado com sucesso!';
+                status.className = "status-msg success";
 
             } catch (error) {
-                // Tratamento de erros (JSON inválido ou erro no servidor)
-                status.innerText = error.name === "SyntaxError" 
-                    ? "Erro: O formato do JSON está inválido." 
-                    : `Falha na requisição: ${error.message}`;
-                status.classList.add('text-red-600', 'block');
-                status.classList.remove('hidden');
+                status.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${error.name === "SyntaxError" ? "Erro: O JSON colado está inválido." : error.message}`;
+                status.className = "status-msg error";
                 console.error(error);
             } finally {
-                // Restaura o botão
-                btn.innerHTML = 'Gerar e Baixar PDF';
+                // Restore button
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Gerar Relatório';
                 btn.disabled = false;
-                btn.classList.remove('opacity-70', 'cursor-not-allowed');
             }
         }
     </script>
+
+    <style>
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </body>
 </html>
