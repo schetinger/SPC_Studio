@@ -36,6 +36,10 @@ def gerar_grafico_da_carta(dados_brutos):
     buffer.seek(0)
     return buffer
 
+def calcular_probabilidade_binomial(n, k, p):
+    import math
+    return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
+
 def grafico_media(carta):
     plt.figure(figsize=(9, 5))
     lista_media = list(carta.media.values())

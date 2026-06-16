@@ -108,14 +108,28 @@ class RelatorioIMRTemplateTest(TestCase):
         )
         self.assertIn("Processo Reprovado", html)
 
-    def test_imr_is_capaz_aprovado(self):
-        # Com limites super folgados, Cp e Cpk passarão de 1.0
-        carta = imr.objects.create(
-            data=DADOS_IMR, lse=15.0, lie=5.0, x1=10.5, x0=9.5
-        )
-        self.assertTrue(carta.is_capaz)
-        html = render_to_string(
-            "front/relatorios/RelatorioIMR.html",
-            {"carta": carta, "grafico_i": "", "grafico_mr": "", "dados_tabela": carta.data.items()},
-        )
-        self.assertIn("Processo Capaz", html)
+
+
+class CartaIMRProbabilidadesEspeciaisTest(TestCase):
+    def test_imr_calcula_lie_lse_dinamico_e_probabilidades(self):
+        dados_mock = {
+            "M1": [10.1],
+            "M2": [10.3],
+            "M3": [9.8],
+            "M4": [10.0],
+            "M5": [10.2],
+        }
+        carta = imr.objects.create(data=dados_mock)
+        
+        # LIE e LSE devem ser sobrepostos
+        expected_lie = round(0.99 * carta.lic_i, 3)
+        expected_lse = round(1.2 * carta.lsc_i, 3)
+        
+        self.assertEqual(carta.lie, expected_lie)
+        self.assertEqual(carta.lse, expected_lse)
+        
+        self.assertIn("margem_deslocada", carta.probabilidade)
+        self.assertIn("valor_x_95", carta.probabilidade)
+        
+        self.assertGreaterEqual(carta.probabilidade["margem_deslocada"], 0)
+        self.assertIsNotNone(carta.probabilidade["valor_x_95"])

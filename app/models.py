@@ -15,10 +15,31 @@ class Carta(models.Model):
     cpk = models.FloatField(default=0)
     probabilidade = models.JSONField(default=dict)
     alertas = models.JSONField(default=dict)
+    regra = models.CharField(max_length=255, default="", blank=True)
 
     @property
     def is_capaz(self):
-        if self.lse > 0 and self.lie > 0:
+        if self.lse > 0 and self.lie > 0 and self.dp_geral > 0:
+            # Curto prazo: Sem pontos na Regra 1 (fora de controle)
+            curto_prazo_ok = True
+            if isinstance(self.alertas, dict):
+                regra_1 = self.alertas.get("regra_1_fora_controle", [])
+                if len(regra_1) > 0:
+                    curto_prazo_ok = False
+            
+            # Longo prazo: PPM < 990
+            media_central = getattr(self, 'media_geral', getattr(self, 'lc_i', None))
+            if media_central is not None:
+                try:
+                    curva_normal = statistics.NormalDist(mu=media_central, sigma=self.dp_geral)
+                    prob_dentro = curva_normal.cdf(self.lse) - curva_normal.cdf(self.lie)
+                    ppm = (1 - prob_dentro) * 1_000_000
+                    longo_prazo_ok = ppm < 990
+                    return curto_prazo_ok and longo_prazo_ok
+                except Exception:
+                    pass
+                    
+            # Fallback caso dê erro no PPM
             return self.cp >= 1.0 and self.cpk >= 1.0
         return None
 
@@ -115,10 +136,10 @@ class Media_Amplitude(Carta):
             lsc_amp = models.FloatField(default=0)
             lic_media = models.FloatField(default=0)
             lic_amp = models.FloatField(default=0)
-            #d4 para 5 valores
-            d4 = 2.114
-            #d3 para 5 valores
-            d3 = 0
+            # Constantes para n=10
+            a2 = 0.308
+            d4 = 1.777
+            d3 = 0.223
             
 
             def dados(self, *args, **kwargs):
@@ -134,23 +155,43 @@ class Media_Amplitude(Carta):
                 self.media_geral = round(statistics.mean(list(self.media.values())),3)
                 self.amplitude = calcular_amplitude
                 self.media_amplitude = round(statistics.mean(list(self.amplitude.values())),3)
-                self.lic_media = round( self.media_geral - 3*self.dp_geral,3)
-                self.lsc_media =round( self.media_geral + 3*self.dp_geral,3)
+                
+                # Issue #5: limites baseados em r_bar e constantes
+                self.lic_media = round( self.media_geral - self.a2*self.media_amplitude, 3)
+                self.lsc_media = round( self.media_geral + self.a2*self.media_amplitude, 3)
                 self.lic_amp = round( self.media_amplitude*self.d3, 3)
                 self.lsc_amp = round( self.media_amplitude*self.d4, 3)
-                self.cp =round(((self.lse-self.lie)/(6*self.dp_geral)),3)
+                # Issue #6: LIE e LSE calculados dinamicamente
+                self.lie = round(0.99 * self.lic_media, 3)
+                self.lse = round(1.2 * self.lsc_media, 3)
+                
+                if self.dp_geral > 0:
+                    self.cp = round(((self.lse-self.lie)/(6*self.dp_geral)),3)
+                    cpk_superior = (self.lse - self.media_geral) / (3 * self.dp_geral)
+                    cpk_inferior = (self.media_geral - self.lie) / (3 * self.dp_geral)
+                    self.cpk = round(min(cpk_superior, cpk_inferior),3)
 
-                cpk_superior = (self.lse - self.media_geral) / (3 * self.dp_geral)
-                cpk_inferior = (self.media_geral - self.lie) / (3 * self.dp_geral)
-                self.cpk = round(min(cpk_superior, cpk_inferior),3)
-
-                curva_normal = statistics.NormalDist(mu=self.media_geral, sigma=self.dp_geral)
-                intervalo = (curva_normal.cdf(self.x1) - curva_normal.cdf(self.x0))*100
-                prob_menor_x1 = curva_normal.cdf(self.x1) * 100
-                prob_maior_x0 = (1 - curva_normal.cdf(self.x0)) * 100
-                self.probabilidade= {"menor_x1": round(prob_menor_x1,3),
-                                     "maior_x0": round(prob_maior_x0,3),
-                                     "intervalo":round(intervalo,3)}
+                    curva_normal = statistics.NormalDist(mu=self.media_geral, sigma=self.dp_geral)
+                    
+                    # Issue #6: Probabilidade deslocada
+                    mu_deslocada = self.media_geral + (1 * self.dp_geral)
+                    curva_deslocada = statistics.NormalDist(mu=mu_deslocada, sigma=self.dp_geral)
+                    margem_deslocada = (curva_deslocada.cdf(self.lse) - curva_deslocada.cdf(self.lie)) * 100
+                    
+                    # Issue #6: Valor X para 95%
+                    valor_x_95 = curva_normal.inv_cdf(0.95)
+                    
+                    intervalo = (curva_normal.cdf(self.x1) - curva_normal.cdf(self.x0))*100
+                    prob_menor_x1 = curva_normal.cdf(self.x1) * 100
+                    prob_maior_x0 = (1 - curva_normal.cdf(self.x0)) * 100
+                    
+                    self.probabilidade= {
+                        "menor_x1": round(prob_menor_x1, 3),
+                        "maior_x0": round(prob_maior_x0, 3),
+                        "intervalo": round(intervalo, 3),
+                        "margem_deslocada": round(margem_deslocada, 3),
+                        "valor_x_95": round(valor_x_95, 3)
+                    }
                 
                 lista_das_medias = list(self.media.values()) 
 
@@ -161,29 +202,58 @@ class Media_Amplitude(Carta):
                 )
                 print(alertas_we)
                 self.alertas = alertas_we
-class p (Carta):
-    n = 20
+class p(Carta):
+    n = 10
     lc = models.FloatField(default=0)
     lsc = models.FloatField(default=0)
     lic = models.FloatField(default=0)
     taxa = models.JSONField(default=dict)
+
     def dados(self):
+        import operator
+        ops = {"<": operator.lt, ">": operator.gt, "<=": operator.le, ">=": operator.ge, "==": operator.eq, "!=": operator.ne}
+        
+        op_func = None
+        val_regra = None
+        
+        if self.regra:
+            partes = self.regra.strip().split()
+            if len(partes) == 3 and partes[0].lower() == 'x':
+                op_func = ops.get(partes[1])
+                try:
+                    val_regra = float(partes[2])
+                except ValueError:
+                    pass
+
         calcular_taxas = {}
         calcular_lc = 0
-        tamanho =0
+        tamanho = 0
         super().dados()
-        for i,valores in self.data.items():
-            calcular_lc += valores[0]
-            tamanho +=self.n
-            calcular_taxas[i]=round(valores[0]/self.n,3)
-        self.lc = calcular_lc/tamanho
-        def desvio(p,n):
+        
+        for i, valores in self.data.items():
+            falhas = 0
+            if op_func and val_regra is not None:
+                for v in valores:
+                    if op_func(v, val_regra):
+                        falhas += 1
+            else:
+                falhas = valores[0]
+                
+            calcular_lc += falhas
+            tamanho += self.n
+            calcular_taxas[i] = round(falhas / self.n, 3)
+            
+        self.lc = calcular_lc / tamanho
+        
+        def desvio(p, n):
            return math.sqrt((p*(1-p))/n)
   
-        if (self.lc-3*desvio(self.lc,self.n)>0): 
-             self.lic= round(self.lc-3*desvio(self.lc,self.n),3)
-        else: self.lic=0
-        self.lsc = round(self.lc+3*desvio(self.lc,self.n),3)
+        if (self.lc - 3*desvio(self.lc, self.n) > 0): 
+             self.lic = round(self.lc - 3*desvio(self.lc, self.n), 3)
+        else: 
+             self.lic = 0
+             
+        self.lsc = round(self.lc + 3*desvio(self.lc, self.n), 3)
         self.taxa = calcular_taxas
         
         lista_das_taxas = list(self.taxa.values())
@@ -194,27 +264,57 @@ class p (Carta):
                 lsc=self.lsc
             )
 class u(Carta):
-     n = 20
-     lc = models.FloatField(default=0)
-     lic = models.FloatField(default=0)
-     lsc = models.FloatField(default=0)
-     taxa = models.JSONField(default=dict)
-     def dados(self):
+    n = 10
+    lc = models.FloatField(default=0)
+    lic = models.FloatField(default=0)
+    lsc = models.FloatField(default=0)
+    taxa = models.JSONField(default=dict)
+
+    def dados(self):
+        import operator
+        ops = {"<": operator.lt, ">": operator.gt, "<=": operator.le, ">=": operator.ge, "==": operator.eq, "!=": operator.ne}
+        
+        op_func = None
+        val_regra = None
+        
+        if self.regra:
+            partes = self.regra.strip().split()
+            if len(partes) == 3 and partes[0].lower() == 'x':
+                op_func = ops.get(partes[1])
+                try:
+                    val_regra = float(partes[2])
+                except ValueError:
+                    pass
+
         calcular_taxas = {}
         calcular_lc = 0
-        tamanho=0
+        tamanho = 0
         super().dados()
-        for i,valores in self.data.items():
-            calcular_lc += valores[0]
-            calcular_taxas[i]=round(valores[0]/self.n,3)
-            tamanho +=self.n
-        self.lc = calcular_lc/tamanho
-        def desvio(u,n):
+        
+        for i, valores in self.data.items():
+            falhas = 0
+            if op_func and val_regra is not None:
+                for v in valores:
+                    if op_func(v, val_regra):
+                        falhas += 1
+            else:
+                falhas = valores[0]
+                
+            calcular_lc += falhas
+            calcular_taxas[i] = round(falhas / self.n, 3)
+            tamanho += self.n
+            
+        self.lc = calcular_lc / tamanho
+        
+        def desvio(u, n):
            return math.sqrt(u/n)
-        if (self.lc-3*desvio(self.lc,self.n)>0): 
-             self.lic= round(self.lc-3*desvio(self.lc,self.n),3)
-        else: self.lic=0
-        self.lsc = round(self.lc+3*desvio(self.lc,self.n),3)
+           
+        if (self.lc - 3*desvio(self.lc, self.n) > 0): 
+             self.lic = round(self.lc - 3*desvio(self.lc, self.n), 3)
+        else: 
+             self.lic = 0
+             
+        self.lsc = round(self.lc + 3*desvio(self.lc, self.n), 3)
         self.taxa = calcular_taxas
 
         lista_das_taxas = list(self.taxa.values())
@@ -258,21 +358,37 @@ class imr(Carta):
         self.lsc_mr = round(self.am_media*self.d4,3)
         self.lc_mr = self.am_media
         
-        # Issue #2: Cp, Cpk e Probabilidades (só calcula se limites forem passados)
-        if self.dp_geral > 0 and self.lse > 0:
+        # Issue #6: LIE e LSE calculados dinamicamente
+        self.lie = round(0.99 * self.lic_i, 3)
+        self.lse = round(1.2 * self.lsc_i, 3)
+        
+        # Issue #2 e #6: Cp, Cpk e Probabilidades
+        if self.dp_geral > 0:
             self.cp = round(((self.lse - self.lie) / (6 * self.dp_geral)), 3)
             cpk_superior = (self.lse - self.lc_i) / (3 * self.dp_geral)
             cpk_inferior = (self.lc_i - self.lie) / (3 * self.dp_geral)
             self.cpk = round(min(cpk_superior, cpk_inferior), 3)
 
             curva_normal = statistics.NormalDist(mu=self.lc_i, sigma=self.dp_geral)
+            
+            # Issue #6: Probabilidade deslocada
+            mu_deslocada = self.lc_i + (1 * self.dp_geral)
+            curva_deslocada = statistics.NormalDist(mu=mu_deslocada, sigma=self.dp_geral)
+            margem_deslocada = (curva_deslocada.cdf(self.lse) - curva_deslocada.cdf(self.lie)) * 100
+            
+            # Issue #6: Valor X para 95%
+            valor_x_95 = curva_normal.inv_cdf(0.95)
+            
             intervalo = (curva_normal.cdf(self.x1) - curva_normal.cdf(self.x0)) * 100
             prob_menor_x1 = curva_normal.cdf(self.x1) * 100
             prob_maior_x0 = (1 - curva_normal.cdf(self.x0)) * 100
+            
             self.probabilidade = {
                 "menor_x1": round(prob_menor_x1, 3),
                 "maior_x0": round(prob_maior_x0, 3),
-                "intervalo": round(intervalo, 3)
+                "intervalo": round(intervalo, 3),
+                "margem_deslocada": round(margem_deslocada, 3),
+                "valor_x_95": round(valor_x_95, 3)
             }
         
         # Issue #2: Alertas Western Electric

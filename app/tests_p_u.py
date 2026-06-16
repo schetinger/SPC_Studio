@@ -52,3 +52,27 @@ class CartaP_UTest(TestCase):
             {"carta": carta, "grafico": "", "dados_tabela": carta.data.items()}
         )
         self.assertIn("Alerta", html)
+
+class CartaP_U_ValidacaoTest(TestCase):
+    def test_p_u_extrai_taxas_com_regra_e_n10(self):
+        # Amostras com 10 medições cada
+        dados_mock = {
+            "A1": [50.1, 48.5, 49.2, 51.0, 48.0, 50.0, 50.0, 50.0, 50.0, 50.0], # 2 valores < 49.00
+            "A2": [48.1, 48.2, 48.3, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0], # 3 valores < 49.00
+        }
+        
+        # Testando P
+        carta_p = p.objects.create(data=dados_mock, regra="x < 49.00")
+        
+        self.assertEqual(carta_p.n, 10)
+        self.assertEqual(carta_p.taxa["A1"], 0.2)
+        self.assertEqual(carta_p.taxa["A2"], 0.3)
+        self.assertEqual(carta_p.lc, 0.25)
+
+        # Testando U
+        carta_u = u.objects.create(data=dados_mock, regra="x < 49.00")
+        
+        self.assertEqual(carta_u.n, 10)
+        self.assertEqual(carta_u.taxa["A1"], 0.2)
+        self.assertEqual(carta_u.taxa["A2"], 0.3)
+        self.assertEqual(carta_u.lc, 0.25)
