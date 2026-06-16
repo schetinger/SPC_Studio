@@ -10,10 +10,12 @@ A ferramenta definitiva e *open-source* para engenheiros da qualidade gerarem re
 
 ## 🎨 A Interface (IDE Estatístico)
 
-*(Substitua esta imagem colocando um print do seu frontend na pasta `docs/screenshot.png`)*
-![SPC Studio Interface](docs/screenshot.png)
+<img width="1914" height="954" alt="image" src="https://github.com/user-attachments/assets/fc5583e9-5e73-4d11-9cfe-9d701a317959" />
+
 
 Desenvolvemos um front-end focado em alta produtividade. Um layout dividido em *Dark Mode* que permite a entrada de arquivos JSON à esquerda e o **Preview instantâneo e dinâmico** do PDF gerado à direita. Nenhuma configuração extra: colou, gerou.
+
+<img width="1914" height="941" alt="image" src="https://github.com/user-attachments/assets/1217a648-3f9c-4dfd-90ac-e08828bd6235" />
 
 ---
 
