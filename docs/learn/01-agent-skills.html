@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Skills — Guia Prático para o Projeto CEP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #161922;
+      --surface2: #1e2330;
+      --border: #2a3045;
+      --accent: #6c8aff;
+      --accent2: #a78bfa;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --code-bg: #0a0c10;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,15,20,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      overflow-x: auto;
+    }
+    nav .logo {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--accent);
+      white-space: nowrap;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--text); }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 4rem 2rem 2rem;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .hero-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #e2e8f0 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 620px;
+    }
+
+    /* ── LAYOUT ── */
+    .content {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* ── SECTION ── */
+    section {
+      margin-bottom: 4rem;
+      scroll-margin-top: 5rem;
+    }
+    section h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    section h2 .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    section > p, section > .lead {
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── SKILL CARDS ── */
+    .skill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .skill-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .skill-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .skill-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(108,138,255,0.15);
+    }
+    .skill-card:hover::before { opacity: 0.05; }
+    .skill-card .icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.6rem;
+      position: relative;
+    }
+    .skill-card .name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 0.4rem;
+      position: relative;
+    }
+    .skill-card .desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      position: relative;
+      line-height: 1.5;
+    }
+    .skill-card .badge {
+      display: inline-block;
+      margin-top: 0.6rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: relative;
+    }
+    .badge-core { background: rgba(52,211,153,0.15); color: var(--green); }
+    .badge-refine { background: rgba(251,191,36,0.15); color: var(--yellow); }
+    .badge-explore { background: rgba(167,139,250,0.15); color: var(--accent2); }
+
+    /* ── WORKFLOW ── */
+    .workflow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-top: 1.5rem;
+    }
+    .flow-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .flow-step {
+      display: flex;
+      gap: 1.25rem;
+      padding: 1.25rem 0;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow-step-body h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .flow-step-body p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .flow-step-body .cmd {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.3rem 0.7rem;
+      margin-top: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+    }
+
+    /* ── CODE BLOCK ── */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.83rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      margin: 1rem 0;
+      position: relative;
+    }
+    .code-block .comment { color: #485272; }
+    .code-block .string { color: var(--green); }
+    .code-block .keyword { color: var(--accent2); }
+    .code-block .label { color: var(--yellow); }
+
+    /* ── CALLOUT ── */
+    .callout {
+      display: flex;
+      gap: 1rem;
+      background: var(--surface2);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 10px 10px 0;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .callout.try { border-color: var(--green); }
+    .callout.warn { border-color: var(--yellow); }
+    .callout .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+    .callout .callout-body { font-size: 0.9rem; }
+    .callout .callout-body strong { color: var(--text); display: block; margin-bottom: 0.25rem; }
+    .callout .callout-body p { color: var(--muted); }
+
+    /* ── QUIZ ── */
+    .quiz {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      margin-top: 2rem;
+    }
+    .quiz h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: var(--text);
+    }
+    .quiz .q-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    .quiz p.scenario {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.6;
+    }
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .quiz-option {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 0.9rem;
+      color: var(--text);
+      text-align: left;
+      width: 100%;
+    }
+    .quiz-option:hover { border-color: var(--accent); background: rgba(108,138,255,0.08); }
+    .quiz-option.correct { border-color: var(--green); background: rgba(52,211,153,0.1); color: var(--green); }
+    .quiz-option.wrong { border-color: var(--red); background: rgba(248,113,113,0.1); color: var(--red); }
+    .quiz-feedback {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.ok { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+    .quiz-feedback.nope { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+
+    /* ── PROGRESS BAR ── */
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.1s ease;
+      z-index: 200;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+      margin-top: 4rem;
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+
+    /* ── HIGHLIGHT ── */
+    mark {
+      background: rgba(108,138,255,0.25);
+      color: var(--accent);
+      border-radius: 3px;
+      padding: 0 3px;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1em 0.4em;
+      color: var(--accent2);
+    }
+
+    /* Separator */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 3rem 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav>
+  <span class="logo">⚡ CEP × Skills</span>
+  <a href="#o-que-sao">O que são</a>
+  <a href="#mapa">Mapa das Skills</a>
+  <a href="#workflow">Workflow</a>
+  <a href="#to-issues">to-issues</a>
+  <a href="#tdd">tdd</a>
+  <a href="#review">review</a>
+  <a href="#quiz">Quiz</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-label">📚 Sessão 1 — Agent Skills</div>
+  <h1>Delegar desenvolvimento<br/>para agentes orientados a spec</h1>
+  <p>
+    Um guia prático sobre as <strong>agent skills</strong> do pacote <code>mattpocock/skills</code>,
+    aplicado diretamente ao seu projeto <strong>CEP (Django)</strong> —
+    cartas de controle Xr, IMR, p e u.
+  </p>
+</div>
+
+<div class="content">
+
+  <!-- ══════════════════════════════════════════ -->
+  <section id="o-que-sao">
+    <h2><span class="num">1</span> O que são agent skills?</h2>
+    <p class="lead">
+      Uma <strong>skill</strong> é um arquivo de instruções (<code>SKILL.md</code>) que ensina um agente de IA a executar
+      um <em>workflow especializado</em> de engenharia de software — como um manual de procedimento operacional padrão.
+    </p>
+
+    <p>Quando você invoca uma skill (digitando <code>/to-issues</code>, por exemplo),
+    o agente lê o <code>SKILL.md</code> correspondente e segue as instruções ao pé da letra.
+    Você não precisa explicar como fazer — só precisa fornecer o <em>quê</em>.</p>
+
+    <div class="callout">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>A analogia certa</strong>
+        <p>Pense como contratar um engenheiro sênior com um manual de práticas da empresa.
+        Você descreve o problema, ele segue o processo. As skills são esse manual.</p>
+      </div>
+    </div>
+
+    <p>Há <strong>12 skills instaladas</strong> neste repositório. Elas se dividem em três papéis:</p>
+
+    <div class="skill-grid">
+      <div class="skill-card">
+        <div class="icon">🎯</div>
+        <div class="name">/to-issues</div>
+        <div class="desc">Transforma um plano ou PRD em issues independentes no GitHub, com critérios de aceite claros.</div>
+        <span class="badge badge-core">Core — use primeiro</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🔴🟢</div>
+        <div class="name">/tdd</div>
+        <div class="desc">Implementa features com loop red-green-refactor guiado pelo agente, a partir de uma issue.</div>
+        <span class="badge badge-core">Core — use para features</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🔍</div>
+        <div class="name">/review</div>
+        <div class="desc">Audita mudanças desde um commit/branch em dois eixos: padrões de código e aderência à spec.</div>
+        <span class="badge badge-core">Core — use para revisão</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🏗️</div>
+        <div class="name">/prototype</div>
+        <div class="desc">Constrói um protótipo descartável para validar um design antes de se comprometer com ele.</div>
+        <span class="badge badge-explore">Exploração</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🧠</div>
+        <div class="name">/grill-with-docs</div>
+        <div class="desc">Sessão de perguntas duras que alinha seu plano com o CONTEXT.md e os ADRs do projeto.</div>
+        <span class="badge badge-refine">Refinamento</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🔭</div>
+        <div class="name">/zoom-out</div>
+        <div class="desc">Revisão de alto nível: identifica dívidas técnicas e oportunidades de arquitetura no projeto.</div>
+        <span class="badge badge-refine">Refinamento</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🎨</div>
+        <div class="name">/design-an-interface</div>
+        <div class="desc">Gera múltiplos designs radicalmente diferentes para um módulo usando sub-agentes paralelos.</div>
+        <span class="badge badge-explore">Exploração</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🔥</div>
+        <div class="name">/grill-me</div>
+        <div class="desc">Entrevista implacável sobre um plano ou design para resolver cada bifurcação de decisão.</div>
+        <span class="badge badge-explore">Exploração</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">🏛️</div>
+        <div class="name">/improve-codebase-architecture</div>
+        <div class="desc">Encontra oportunidades de melhoria arquitetural informadas pelo CONTEXT.md e ADRs.</div>
+        <span class="badge badge-refine">Refinamento</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <section id="mapa">
+    <h2><span class="num">2</span> O mapa mental: quando usar cada skill?</h2>
+    <p class="lead">A regra de ouro é: <em>spec antes de código</em>. O fluxo natural é linear.</p>
+
+    <div class="workflow">
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num">1</div>
+          <div class="flow-step-body">
+            <h3>Você tem uma ideia ou backlog</h3>
+            <p>Ex: "Quero adicionar exportação CSV das cartas de controle do CEP."</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">2</div>
+          <div class="flow-step-body">
+            <h3>Especifica com <code>/to-issues</code></h3>
+            <p>O agente quebra a ideia em issues rastreáveis no GitHub, com critérios de aceite mensuráveis. Cada issue fica <em>ready-for-agent</em>.</p>
+            <span class="cmd">📋 /to-issues Adicionar exportação CSV para cartas Xr e IMR</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">3</div>
+          <div class="flow-step-body">
+            <h3>Implementa com <code>/tdd</code></h3>
+            <p>Aponta para a issue criada. O agente escreve testes primeiro (red), depois implementa (green), depois limpa (refactor).</p>
+            <span class="cmd">🔴 /tdd issue #12</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">4</div>
+          <div class="flow-step-body">
+            <h3>Revisa com <code>/review</code></h3>
+            <p>Audita as mudanças em dois eixos: padrões de código do repo e fidelidade à spec original da issue.</p>
+            <span class="cmd">🔍 /review since main</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">5</div>
+          <div class="flow-step-body">
+            <h3>Mergeia e repete</h3>
+            <p>Próxima issue da lista. O ciclo acelera porque cada issue já nasce especificada.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout try">
+      <div class="callout-icon">🚀</div>
+      <div class="callout-body">
+        <strong>Tente isso agora</strong>
+        <p>Pense em <em>uma</em> coisa que você quer adicionar ao projeto CEP (pode ser pequena).
+        Guarde essa ideia — você vai usá-la no próximo quiz e nas sessões práticas.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <section id="to-issues">
+    <h2><span class="num">3</span> <code>/to-issues</code> em detalhes</h2>
+    <p class="lead">
+      Esta é a skill mais importante para delegação. Ela transforma uma ideia vaga em issues
+      <strong>independentes e auto-suficientes</strong> — ou seja, um agente consegue implementá-las
+      sem precisar te perguntar nada.
+    </p>
+
+    <p>A skill usa o conceito de <em>tracer-bullet vertical slice</em>: cada issue corta verticalmente
+    todas as camadas (model → view → teste) de uma feature pequena, ao invés de fazer uma issue por camada.</p>
+
+    <div class="callout warn">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>Por que isso importa para o CEP?</strong>
+        <p>No seu projeto, uma issue do tipo "criar endpoint de exportação CSV" cortaria:
+        <code>views.py</code> (nova view), <code>urls.py</code> (nova rota), <code>utils.py</code>
+        (lógica de geração CSV) e <code>tests.py</code> — tudo numa fatia vertical testável.</p>
+      </div>
+    </div>
+
+    <h3 style="margin: 1.5rem 0 0.75rem; font-size: 1rem; color: var(--text);">Exemplo real para o projeto CEP:</h3>
+
+    <div class="code-block">
+<span class="comment"># Você digita no chat:</span>
+<span class="label">/to-issues</span> <span class="string">Quero que a API retorne os alertas Western Electric
+formatados por tipo de regra, com timestamp de quando
+ocorreram, em vez do formato atual de lista plana.</span>
+    </div>
+
+    <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem;">
+      A skill vai ler seu <code>AGENTS.md</code>, entender que o issue tracker é GitHub,
+      quebrar isso em 2-3 issues com critérios de aceite claros, e criar no GitHub via <code>gh issue create</code>.
+      Cada issue sai com label <mark>ready-for-agent</mark>.
+    </p>
+
+    <div class="callout">
+      <div class="callout-icon">📎</div>
+      <div class="callout-body">
+        <strong>Citação da skill</strong>
+        <p>
+          <a href="https://github.com/mattpocock/skills/blob/main/src/to-issues/SKILL.md" style="color: var(--accent);" target="_blank">
+            to-issues/SKILL.md
+          </a>
+          — "Break a plan, spec, or PRD into independently-grabbable issues on the project issue tracker using tracer-bullet vertical slices."
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <section id="tdd">
+    <h2><span class="num">4</span> <code>/tdd</code> em detalhes</h2>
+    <p class="lead">
+      Implementa features com o loop <strong>red → green → refactor</strong>, guiado pelo agente,
+      a partir de uma issue existente. Você fornece a issue, o agente escreve os testes, faz passar, e limpa.
+    </p>
+
+    <div class="workflow">
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num" style="border-color: var(--red); color: var(--red);">R</div>
+          <div class="flow-step-body">
+            <h3 style="color: var(--red);">RED — Testes que falham</h3>
+            <p>O agente lê a spec da issue e escreve testes que descrevem o comportamento esperado.
+            No CEP: <code>test_alertas_western_electric_formato_correto()</code> falharia aqui.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="border-color: var(--green); color: var(--green);">G</div>
+          <div class="flow-step-body">
+            <h3 style="color: var(--green);">GREEN — Implementação mínima</h3>
+            <p>O agente implementa o mínimo necessário para fazer os testes passarem.
+            Sem otimizações, sem over-engineering.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="border-color: var(--accent2); color: var(--accent2);">♻</div>
+          <div class="flow-step-body">
+            <h3 style="color: var(--accent2);">REFACTOR — Limpeza com testes verdes</h3>
+            <p>O agente melhora o código sem alterar comportamento. Os testes continuam passando como garantia.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout try">
+      <div class="callout-icon">🧪</div>
+      <div class="callout-body">
+        <strong>Pré-requisito importante</strong>
+        <p>O <code>/tdd</code> funciona melhor quando a issue de origem tem <strong>critérios de aceite claros</strong>.
+        Por isso a sequência correta é sempre: <code>/to-issues</code> → <code>/tdd</code>.
+        Nunca inverta.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <section id="review">
+    <h2><span class="num">5</span> <code>/review</code> em detalhes</h2>
+    <p class="lead">
+      Audita mudanças de código em dois eixos paralelos, rodados por <strong>sub-agentes simultâneos</strong>:
+    </p>
+
+    <div class="skill-grid" style="grid-template-columns: 1fr 1fr;">
+      <div class="skill-card">
+        <div class="icon">📐</div>
+        <div class="name">Eixo 1: Standards</div>
+        <div class="desc">O código segue os padrões documentados deste repositório? Convenções, estrutura, nomenclatura do glossário.</div>
+      </div>
+      <div class="skill-card">
+        <div class="icon">📋</div>
+        <div class="name">Eixo 2: Spec</div>
+        <div class="desc">O código implementa o que a issue/PRD pediu? Nada a mais, nada a menos. Fiel à spec original.</div>
+      </div>
+    </div>
+
+    <h3 style="margin: 1.5rem 0 0.75rem; font-size: 1rem; color: var(--text);">Como invocar:</h3>
+
+    <div class="code-block">
+<span class="comment"># Revisa tudo desde o branch main:</span>
+<span class="label">/review</span> since main
+
+<span class="comment"># Revisa desde um commit específico:</span>
+<span class="label">/review</span> since abc123f
+
+<span class="comment"># Revisa apontando para a issue que gerou o trabalho:</span>
+<span class="label">/review</span> since main spec issue #12
+    </div>
+
+    <div class="callout">
+      <div class="callout-icon">🎯</div>
+      <div class="callout-body">
+        <strong>Para o projeto CEP</strong>
+        <p>O reviewer vai verificar se a sua implementação de alertas Western Electric em
+        <code>models.py</code> está aderente à issue, e se segue os padrões do repo
+        (imports, nomenclatura, estrutura de classes).</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <section id="quiz">
+    <h2><span class="num">6</span> Quiz — teste o que você aprendeu</h2>
+    <p class="lead">Três cenários do projeto CEP. Escolha a skill correta.</p>
+
+    <!-- Q1 -->
+    <div class="quiz" id="q1">
+      <div class="q-label">Questão 1 de 3</div>
+      <h3>Cenário: Você quer adicionar um endpoint para retornar o histórico de cartas IMR salvas no banco, com paginação.</h3>
+      <p class="scenario">Você ainda não escreveu nenhuma linha de código. A ideia está na sua cabeça.</p>
+      <div class="quiz-options">
+        <button class="quiz-option" onclick="answer('q1', this, false)">
+          /tdd — já começo implementando com TDD
+        </button>
+        <button class="quiz-option" onclick="answer('q1', this, true)">
+          /to-issues — primeiro especifico a feature, depois implemento
+        </button>
+        <button class="quiz-option" onclick="answer('q1', this, false)">
+          /review — reviso o que existe antes de adicionar
+        </button>
+        <button class="quiz-option" onclick="answer('q1', this, false)">
+          /prototype — construo um protótipo descartável primeiro
+        </button>
+      </div>
+      <div class="quiz-feedback" id="q1-fb"></div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz" style="margin-top: 1.5rem;" id="q2">
+      <div class="q-label">Questão 2 de 3</div>
+      <h3>Cenário: A issue #8 foi criada com spec clara — "adicionar validação de dados na view GeradorCEP antes de criar a carta".</h3>
+      <p class="scenario">A issue tem critérios de aceite. Você vai implementar.</p>
+      <div class="quiz-options">
+        <button class="quiz-option" onclick="answer('q2', this, false)">
+          /to-issues — re-especifica a issue com mais detalhe
+        </button>
+        <button class="quiz-option" onclick="answer('q2', this, false)">
+          /review — revisa o código antes de mudar qualquer coisa
+        </button>
+        <button class="quiz-option" onclick="answer('q2', this, true)">
+          /tdd issue #8 — implementa com red-green-refactor a partir da spec
+        </button>
+        <button class="quiz-option" onclick="answer('q2', this, false)">
+          /zoom-out — avalia o estado geral do projeto antes
+        </button>
+      </div>
+      <div class="quiz-feedback" id="q2-fb"></div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz" style="margin-top: 1.5rem;" id="q3">
+      <div class="q-label">Questão 3 de 3</div>
+      <h3>Cenário: Você implementou o cálculo do Cpk na classe Media_Amplitude. Quer saber se o código está correto antes de mergiar.</h3>
+      <p class="scenario">O trabalho foi feito num branch chamado <code>feat/cpk</code>. A issue de origem é a #5.</p>
+      <div class="quiz-options">
+        <button class="quiz-option" onclick="answer('q3', this, false)">
+          /tdd — roda o loop TDD novamente para garantir
+        </button>
+        <button class="quiz-option" onclick="answer('q3', this, true)">
+          /review since main spec issue #5 — audita padrões + aderência à spec
+        </button>
+        <button class="quiz-option" onclick="answer('q3', this, false)">
+          /to-issues — cria uma issue de review
+        </button>
+        <button class="quiz-option" onclick="answer('q3', this, false)">
+          /grill-me — sessão de perguntas sobre a implementação
+        </button>
+      </div>
+      <div class="quiz-feedback" id="q3-fb"></div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <section>
+    <h2><span class="num">7</span> Próximos passos</h2>
+    <p class="lead">Você agora conhece o ciclo básico. A próxima sessão será <strong>prática</strong>:</p>
+
+    <div class="skill-grid">
+      <div class="skill-card">
+        <div class="icon">1️⃣</div>
+        <div class="name">Sessão 2 (prática)</div>
+        <div class="desc">Invocar /to-issues com uma feature real do CEP e analisar as issues geradas no GitHub.</div>
+        <span class="badge badge-core">Próximo</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">2️⃣</div>
+        <div class="name">Sessão 3 (prática)</div>
+        <div class="desc">Invocar /tdd a partir de uma das issues criadas e observar o loop red-green-refactor.</div>
+        <span class="badge badge-refine">Em breve</span>
+      </div>
+      <div class="skill-card">
+        <div class="icon">3️⃣</div>
+        <div class="name">Sessão 4 (consolidação)</div>
+        <div class="desc">Invocar /review para auditar as mudanças e fechar o ciclo completo.</div>
+        <span class="badge badge-explore">Em breve</span>
+      </div>
+    </div>
+
+    <div class="callout try" style="margin-top: 2rem;">
+      <div class="callout-icon">💬</div>
+      <div class="callout-body">
+        <strong>Diga ao agente quando terminar de ler</strong>
+        <p>Responda <strong>"li"</strong> ou tire qualquer dúvida sobre o conteúdo acima.
+        Se acertar o quiz, a sessão 2 (prática) começa imediatamente.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  Workspace de ensino · <code>schetinger/Topicos-eletronica</code> ·
+  Sessão 1 de N · Agent Skills (mattpocock/skills)
+</footer>
+
+<script>
+  // Progress bar
+  window.addEventListener('scroll', () => {
+    const el = document.getElementById('progress');
+    const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+    el.style.width = pct + '%';
+  });
+
+  // Quiz
+  const feedbacks = {
+    q1: {
+      ok: '✅ Correto! Antes de escrever qualquer código, você especifica a feature com /to-issues. Isso cria uma issue no GitHub com critérios de aceite claros — o insumo que o /tdd precisa para funcionar bem.',
+      nope: '❌ Não ainda. Sem uma spec clara, o agente não tem como saber o que implementar com precisão. Use /to-issues primeiro para criar uma issue com critérios de aceite — depois /tdd.'
+    },
+    q2: {
+      ok: '✅ Exato! A issue tem spec clara e está ready-for-agent. É hora de delegar a implementação com /tdd, apontando para a issue #8. O agente vai escrever os testes primeiro.',
+      nope: '❌ Não. A issue já está especificada — re-especificar seria redundante, e revisar antes de implementar não faz sentido. Com spec pronta, o próximo passo é sempre /tdd.'
+    },
+    q3: {
+      ok: '✅ Perfeito! O /review audita em dois eixos simultâneos: se o código segue os padrões do repo (standards) e se implementou exatamente o que a issue #5 pedia (spec). Esse é o fechamento do ciclo.',
+      nope: '❌ Não. O trabalho está feito — o que você precisa agora é auditar, não reimplementar ou re-especificar. Use /review com referência à spec original (issue #5) para fechar o ciclo.'
+    }
+  };
+
+  function answer(qId, btn, isCorrect) {
+    const quiz = document.getElementById(qId);
+    const opts = quiz.querySelectorAll('.quiz-option');
+    const fb = document.getElementById(qId + '-fb');
+
+    opts.forEach(o => o.disabled = true);
+    btn.classList.add(isCorrect ? 'correct' : 'wrong');
+
+    const data = feedbacks[qId];
+    fb.textContent = isCorrect ? data.ok : data.nope;
+    fb.className = 'quiz-feedback show ' + (isCorrect ? 'ok' : 'nope');
+  }
+</script>
+</body>
+</html>
