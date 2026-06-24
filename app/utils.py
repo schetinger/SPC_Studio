@@ -9,6 +9,22 @@ from xhtml2pdf import pisa
 from django.http import HttpResponse
 import io
 
+def renderizar_formula_latex(formula_latex):
+    """
+    Renderiza uma fórmula em LaTeX usando o matplotlib e retorna a imagem em formato base64.
+    """
+    fig = plt.figure(figsize=(0.1, 0.1))
+    fig.patch.set_visible(False)
+    
+    # Renderiza o texto com fonte grande — bbox_inches='tight' recorta ao redor
+    fig.text(0.5, 0.5, f"${formula_latex}$", size=18, ha='center', va='center')
+    
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight', pad_inches=0.05, transparent=True)
+    plt.close(fig)
+    
+    return base64.b64encode(buffer.getvalue()).decode('utf-8')
+
 def gerar_grafico_da_carta(dados_brutos):
     # 1. Cria uma "tela" em branco para o gráfico
     plt.figure(figsize=(8, 6))
@@ -36,9 +52,12 @@ def gerar_grafico_da_carta(dados_brutos):
     buffer.seek(0)
     return buffer
 
-def calcular_probabilidade_binomial(n, k, p):
+def calcular_probabilidade_binomial(n, k, p, acumulada=False):
     import math
-    return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
+    if not acumulada:
+        return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
+    else:
+        return sum(math.comb(n, i) * (p ** i) * ((1 - p) ** (n - i)) for i in range(k, n + 1))
 
 def grafico_media(carta):
     plt.figure(figsize=(9, 5))
@@ -268,11 +287,21 @@ def grafico_p(carta):
 
 def GerarRelatorioXr(carta):
     
+    formulas = {
+        'media_medias': renderizar_formula_latex(r"\overline{\overline{X}} = \dfrac{\sum \overline{X}_i}{k}"),
+        'amplitude_media': renderizar_formula_latex(r"\overline{R} = \dfrac{\sum R_i}{k}"),
+        'lsc_x': renderizar_formula_latex(r"LSC_X = \overline{\overline{X}} + A_2 \overline{R}"),
+        'lic_x': renderizar_formula_latex(r"LIC_X = \overline{\overline{X}} - A_2 \overline{R}"),
+        'lsc_r': renderizar_formula_latex(r"LSC_R = D_4 \overline{R}"),
+        'lic_r': renderizar_formula_latex(r"LIC_R = D_3 \overline{R}")
+    }
+
     context = {
             'carta': carta,
             'graficox': grafico_media(carta),
             'graficor':grafico_amplitude(carta),
-            'dados_tabela': carta.data.items()
+            'dados_tabela': carta.data.items(),
+            'formulas': formulas
         }
     template = get_template('front/relatorios/RelatorioXr.html')
     html = template.render(context)
@@ -288,11 +317,21 @@ def GerarRelatorioXr(carta):
 
 def GerarRelatorioIMR(carta):
     
+    formulas = {
+        'media_indiv': renderizar_formula_latex(r"\overline{X} = \dfrac{\sum X_i}{k}"),
+        'amplitude_movel_media': renderizar_formula_latex(r"\overline{MR} = \dfrac{\sum MR_i}{k-1}"),
+        'lsc_i': renderizar_formula_latex(r"LSC_I = \overline{X} + E_2 \overline{MR}"),
+        'lic_i': renderizar_formula_latex(r"LIC_I = \overline{X} - E_2 \overline{MR}"),
+        'lsc_mr': renderizar_formula_latex(r"LSC_{MR} = D_4 \overline{MR}"),
+        'lic_mr': renderizar_formula_latex(r"LIC_{MR} = D_3 \overline{MR}")
+    }
+
     context = {
             'carta': carta,
             'grafico_i': grafico_i(carta),
             'grafico_mr':grafico_mr(carta),
-            'dados_tabela': carta.data.items()
+            'dados_tabela': carta.data.items(),
+            'formulas': formulas
         }
     template = get_template('front/relatorios/RelatorioIMR.html')
     html = template.render(context)
@@ -308,10 +347,17 @@ def GerarRelatorioIMR(carta):
 
 def GerarRelatorioU(carta):
     
+    formulas = {
+        'taxa_media': renderizar_formula_latex(r"\bar{u} = \dfrac{\sum \mathrm{defeitos}}{\sum n_i}"),
+        'lsc_u': renderizar_formula_latex(r"LSC_U = \bar{u} + 3\sqrt{\dfrac{\bar{u}}{n}}"),
+        'lic_u': renderizar_formula_latex(r"LIC_U = \bar{u} - 3\sqrt{\dfrac{\bar{u}}{n}}")
+    }
+
     context = {
             'carta': carta,
             'grafico': grafico_u(carta),
-            'dados_tabela': carta.data.items()
+            'dados_tabela': carta.data.items(),
+            'formulas': formulas
         }
     template = get_template('front/relatorios/RelatorioU.html')
     html = template.render(context)
@@ -327,10 +373,17 @@ def GerarRelatorioU(carta):
 
 def GerarRelatorioP(carta):
     
+    formulas = {
+        'proporcao_media': renderizar_formula_latex(r"\bar{p} = \dfrac{\sum \mathrm{defeituosos}}{\sum n_i}"),
+        'lsc_p': renderizar_formula_latex(r"LSC_P = \bar{p} + 3\sqrt{\dfrac{\bar{p}(1-\bar{p})}{n}}"),
+        'lic_p': renderizar_formula_latex(r"LIC_P = \bar{p} - 3\sqrt{\dfrac{\bar{p}(1-\bar{p})}{n}}")
+    }
+
     context = {
             'carta': carta,
             'grafico': grafico_p(carta),
-            'dados_tabela': carta.data.items()
+            'dados_tabela': carta.data.items(),
+            'formulas': formulas
         }
     template = get_template('front/relatorios/RelatorioP.html')
     html = template.render(context)

@@ -24,21 +24,29 @@
         <p><strong>Limite Inferior (LIC):</strong> {{ carta.lic_media }}</p>
         <p><strong>Capacidade do Processo (Cp):</strong> {{ carta.cp }}</p>
         <p><strong>Índice de Centralização (Cpk):</strong> {{ carta.cpk }}</p>
-        <p><strong>Probabilidade de um x&lt; {{carta.x1}}:</strong> {{ carta.probabilidade.menor_x1 }}%</p>
-        <p><strong>Probabilidade de um x>{{carta.x0}}:</strong> {{ carta.probabilidade.maior_x0 }}%</p>
-        <p><strong>Probabilidade de {{carta.x0}}&lt;x&lt;{{carta.x1}} :</strong> {{ carta.probabilidade.intervalo}}%</p>
-
+        <p><strong>Margem de Sucesso (+1σ deslocamento):</strong> {{ carta.probabilidade.margem_deslocada }}%</p>
+        <p><strong>Valor X para 95% de sucesso:</strong> {{ carta.probabilidade.valor_x_95 }}</p>
+        <p><strong>Probabilidade Binomial (Pelo menos 45/50 boas):</strong> {{ carta.probabilidade.binomial_50_45 }}%</p>
     </div>
 
     {% if carta.is_capaz is not None %}
-    <div class="stats-box" style="margin-top: 20px; background-color: {% if carta.is_capaz %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if carta.is_capaz %}#155724{% else %}#721c24{% endif %}; border: 1px solid {% if carta.is_capaz %}#c3e6cb{% else %}#f5c6cb{% endif %}; text-align: center;">
-        {% if carta.is_capaz %}
-        <h2>✅ Processo Capaz</h2>
-        <p>O processo atende aos padrões mínimos (Cp ≥ 1.0 e Cpk ≥ 1.0).</p>
+    <div class="stats-box" style="margin-top: 20px; background-color: {% if carta.is_capaz.geral %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if carta.is_capaz.geral %}#155724{% else %}#721c24{% endif %}; border: 1px solid {% if carta.is_capaz.geral %}#c3e6cb{% else %}#f5c6cb{% endif %}; text-align: center;">
+        {% if carta.is_capaz.geral %}
+        <h2>✅ Processo Capaz (Geral)</h2>
         {% else %}
-        <h2>❌ Processo Reprovado</h2>
-        <p>O processo NÃO é capaz. É necessário que Cp e Cpk sejam ≥ 1.0.</p>
+        <h2>❌ Processo Reprovado (Geral)</h2>
         {% endif %}
+        
+        <div style="text-align: left; display: inline-block; margin-top: 10px;">
+            <p><strong>Curto Prazo:</strong> 
+                {% if carta.is_capaz.curto_prazo %}✅ Sim{% else %}❌ Não{% endif %}
+                <br><em>Motivo: {{ carta.is_capaz.motivo_curto }}</em>
+            </p>
+            <p><strong>Longo Prazo:</strong>
+                {% if carta.is_capaz.longo_prazo %}✅ Sim{% else %}❌ Não{% endif %}
+                <br><em>Motivo: {{ carta.is_capaz.motivo_longo }}</em>
+            </p>
+        </div>
     </div>
     {% endif %}
 
@@ -156,5 +164,33 @@
         </tbody>
     </table>
 
+    <div style="margin-top: 40px; border-top: 2px solid #444; padding-top: 20px; page-break-inside: avoid;">
+        <h3>Explicações e Fórmulas de Cálculo</h3>
+        <p>Os limites e parâmetros apresentados neste relatório foram calculados utilizando as fórmulas estatísticas padrão para Carta X-Barra R:</p>
+        <table style="width: 100%; text-align: left; border: none; margin-top: 10px;">
+            <tr style="border: none;">
+                <td style="border: none; padding: 10px; width: 50%;">
+                    <strong>Média das Médias (LC da Carta X):</strong><br>
+                    <img src="data:image/png;base64,{{ formulas.media_medias }}">
+                </td>
+                <td style="border: none; padding: 10px; width: 50%;">
+                    <strong>Amplitude Média (LC da Carta R):</strong><br>
+                    <img src="data:image/png;base64,{{ formulas.amplitude_media }}">
+                </td>
+            </tr>
+            <tr style="border: none;">
+                <td style="border: none; padding: 10px;">
+                    <strong>Limites da Carta X-Barra:</strong><br>
+                    <img src="data:image/png;base64,{{ formulas.lsc_x }}"><br>
+                    <img src="data:image/png;base64,{{ formulas.lic_x }}">
+                </td>
+                <td style="border: none; padding: 10px;">
+                    <strong>Limites da Carta R:</strong><br>
+                    <img src="data:image/png;base64,{{ formulas.lsc_r }}"><br>
+                    <img src="data:image/png;base64,{{ formulas.lic_r }}">
+                </td>
+            </tr>
+        </table>
+    </div>
 </body>
 </html>

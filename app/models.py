@@ -35,13 +35,44 @@ class Carta(models.Model):
                     prob_dentro = curva_normal.cdf(self.lse) - curva_normal.cdf(self.lie)
                     ppm = (1 - prob_dentro) * 1_000_000
                     longo_prazo_ok = ppm < 990
-                    return curto_prazo_ok and longo_prazo_ok
+                    return {
+                        "geral": curto_prazo_ok and longo_prazo_ok,
+                        "curto_prazo": curto_prazo_ok,
+                        "longo_prazo": longo_prazo_ok,
+                        "motivo_curto": "Processo estável" if curto_prazo_ok else "Reprovado devido a pontos fora de controle (Regra 1)",
+                        "motivo_longo": "Processo atende à proporção exigida (PPM < 990)" if longo_prazo_ok else "Longo prazo: ppm obtido < ppm requerido onde o pmm requerido é 990"
+                    }
                 except Exception:
                     pass
                     
             # Fallback caso dê erro no PPM
-            return self.cp >= 1.0 and self.cpk >= 1.0
+            geral = self.cp >= 1.0 and self.cpk >= 1.0
+            return {
+                "geral": geral,
+                "curto_prazo": curto_prazo_ok,
+                "longo_prazo": geral,
+                "motivo_curto": "Processo estável" if curto_prazo_ok else "Reprovado (Regra 1)",
+                "motivo_longo": "Cp e Cpk satisfatórios (>= 1.0)" if geral else "Longo prazo: ppm obtido < ppm requerido onde o pmm requerido é 990"
+            }
         return None
+
+    @property
+    def is_sob_controle(self):
+        if not isinstance(self.alertas, dict) or not self.alertas:
+            return None
+            
+        r1 = len(self.alertas.get("regra_1_fora_controle", [])) > 0
+        r2 = len(self.alertas.get("regra_2_alerta_zona_a", [])) > 0
+        r3 = len(self.alertas.get("regra_3_tendencia", [])) > 0
+        r4 = len(self.alertas.get("regra_4_deslocamento", [])) > 0
+        
+        geral = not (r1 or r2 or r3 or r4)
+        
+        return {
+            "geral": geral,
+            "fora_limites": r1,
+            "deslocamento": r4,
+        }
 
     class Meta:
         abstract = True
@@ -181,16 +212,16 @@ class Media_Amplitude(Carta):
                     # Issue #6: Valor X para 95%
                     valor_x_95 = curva_normal.inv_cdf(0.95)
                     
-                    intervalo = (curva_normal.cdf(self.x1) - curva_normal.cdf(self.x0))*100
-                    prob_menor_x1 = curva_normal.cdf(self.x1) * 100
-                    prob_maior_x0 = (1 - curva_normal.cdf(self.x0)) * 100
+                    
+                    # Binomial fixa (n=50, k=45)
+                    from app.utils import calcular_probabilidade_binomial
+                    prob_dentro = curva_normal.cdf(self.lse) - curva_normal.cdf(self.lie)
+                    prob_binomial = calcular_probabilidade_binomial(n=50, k=45, p=prob_dentro, acumulada=True) * 100
                     
                     self.probabilidade= {
-                        "menor_x1": round(prob_menor_x1, 3),
-                        "maior_x0": round(prob_maior_x0, 3),
-                        "intervalo": round(intervalo, 3),
                         "margem_deslocada": round(margem_deslocada, 3),
-                        "valor_x_95": round(valor_x_95, 3)
+                        "valor_x_95": round(valor_x_95, 3),
+                        "binomial_50_45": round(prob_binomial, 3)
                     }
                 
                 lista_das_medias = list(self.media.values()) 
@@ -379,16 +410,16 @@ class imr(Carta):
             # Issue #6: Valor X para 95%
             valor_x_95 = curva_normal.inv_cdf(0.95)
             
-            intervalo = (curva_normal.cdf(self.x1) - curva_normal.cdf(self.x0)) * 100
-            prob_menor_x1 = curva_normal.cdf(self.x1) * 100
-            prob_maior_x0 = (1 - curva_normal.cdf(self.x0)) * 100
+            
+            # Binomial fixa (n=50, k=45)
+            from app.utils import calcular_probabilidade_binomial
+            prob_dentro = curva_normal.cdf(self.lse) - curva_normal.cdf(self.lie)
+            prob_binomial = calcular_probabilidade_binomial(n=50, k=45, p=prob_dentro, acumulada=True) * 100
             
             self.probabilidade = {
-                "menor_x1": round(prob_menor_x1, 3),
-                "maior_x0": round(prob_maior_x0, 3),
-                "intervalo": round(intervalo, 3),
                 "margem_deslocada": round(margem_deslocada, 3),
-                "valor_x_95": round(valor_x_95, 3)
+                "valor_x_95": round(valor_x_95, 3),
+                "binomial_50_45": round(prob_binomial, 3)
             }
         
         # Issue #2: Alertas Western Electric

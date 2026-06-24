@@ -1,0 +1,6 @@
+Django==6.0.3
+djangorestframework==3.17.1
+django-cors-headers==4.9.0
+matplotlib==3.10.8
+seaborn==0.13.2
+xhtml2pdf==0.2.17

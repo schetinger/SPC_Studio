@@ -155,3 +155,125 @@ class ProbabilidadeBinomialTest(TestCase):
         # comb(50, 45) * (0.95)^45 * (0.05)^5 = ~0.0658
         prob = calcular_probabilidade_binomial(n=50, k=45, p=0.95)
         self.assertAlmostEqual(prob, 0.0658, places=3)
+
+# ---------------------------------------------------------------------------
+# Issue #9 — Padronização de Leitura de Dados na API
+# ---------------------------------------------------------------------------
+class APIPadronizacaoLeituraTest(TestCase):
+    def test_post_carta_ignorando_maiusculas_e_removendo_obsoletos(self):
+        client = Client()
+        
+        # Simulando payload dados1.json (com "Carta" e "Amostras" em maiúsculo)
+        # e sem os campos "especificacoes" e "intervalo_probabilidade"
+        payload_xr_novo_formato = {
+            "Carta": "XR",
+            "Amostras": {
+                "A1": [10.1, 10.3, 9.8, 10.0, 10.2],
+                "A2": [9.9, 10.5, 10.1, 9.7, 10.3],
+            }
+        }
+        
+        response = client.post(
+            "/carta/gerar-carta/",
+            data=json.dumps(payload_xr_novo_formato),
+            content_type="application/json",
+        )
+        
+        # Teste deve passar se a API conseguir ler "Carta", "Amostras",
+        # instanciar a Carta_XR e retornar um PDF HTTP 200.
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+
+    def test_post_carta_mri_imr_roteamento(self):
+        client = Client()
+        
+        payload_mri = {
+            "carta": "MRI",
+            "amostras": {
+                "A1": [10.1, 10.3, 9.8, 10.0, 10.2],
+            }
+        }
+        
+        response_mri = client.post(
+            "/carta/gerar-carta/",
+            data=json.dumps(payload_mri),
+            content_type="application/json",
+        )
+        self.assertEqual(response_mri.status_code, 200)
+        self.assertEqual(response_mri["Content-Type"], "application/pdf")
+
+    def test_post_carta_p_u_com_defeituosos(self):
+        client = Client()
+        
+        payload_p = {
+            "carta": "P",
+            "amostras": {
+                "A1": [10.1, 10.3, 9.8, 10.0, 10.2],
+            },
+            "defeituosos": "x < 10.00"
+        }
+        
+        response_p = client.post(
+            "/carta/gerar-carta/",
+            data=json.dumps(payload_p),
+            content_type="application/json",
+        )
+        self.assertEqual(response_p.status_code, 200)
+        self.assertEqual(response_p["Content-Type"], "application/pdf")
+        
+        # Testar U também
+        payload_u = dict(payload_p)
+        payload_u["carta"] = "U"
+        response_u = client.post(
+            "/carta/gerar-carta/",
+            data=json.dumps(payload_u),
+            content_type="application/json",
+        )
+        self.assertEqual(response_u.status_code, 200)
+        self.assertEqual(response_u["Content-Type"], "application/pdf")
+
+class CartaCapacidadeEDicionarioTest(TestCase):
+    def test_is_capaz_retorna_dicionario(self):
+        from app.models import Media_Amplitude
+        dados = {
+            "A1": [10.1, 10.3, 9.8, 10.0, 10.2]
+        }
+        # lse e lie grandes garantem ppm < 990 e sem regra 1
+        carta = Media_Amplitude.objects.create(data=dados)
+        
+        # Testar se is_capaz agora retorna dicionário
+        self.assertIsInstance(carta.is_capaz, dict)
+        self.assertIn("geral", carta.is_capaz)
+        self.assertIn("curto_prazo", carta.is_capaz)
+        self.assertIn("motivo_curto", carta.is_capaz)
+        self.assertIn("longo_prazo", carta.is_capaz)
+        self.assertIn("motivo_longo", carta.is_capaz)
+        
+    def test_probabilidade_inclui_binomial(self):
+        from app.models import Media_Amplitude
+        dados = {
+            "A1": [10.1, 10.3, 9.8, 10.0, 10.2]
+        }
+        carta = Media_Amplitude.objects.create(data=dados)
+        
+        self.assertIn("binomial_50_45", carta.probabilidade)
+        self.assertIn("margem_deslocada", carta.probabilidade)
+        # Campos antigos não devem existir mais
+        self.assertNotIn("menor_x1", carta.probabilidade)
+        self.assertNotIn("maior_x0", carta.probabilidade)
+        self.assertNotIn("intervalo", carta.probabilidade)
+
+class RenderizarFormulaLatexTest(TestCase):
+    def test_renderizar_formula_latex_retorna_base64(self):
+        from app.utils import renderizar_formula_latex
+        formula = r"\overline{\overline{X}} = \frac{\sum \overline{X}_i}{k}"
+        imagem_base64 = renderizar_formula_latex(formula)
+        
+        # O resultado deve ser uma string longa (base64)
+        self.assertIsInstance(imagem_base64, str)
+        self.assertTrue(len(imagem_base64) > 100)
+        
+        # Testar decodificação do base64 (deve ser um PNG válido)
+        import base64
+        decoded = base64.b64decode(imagem_base64)
+        self.assertTrue(decoded.startswith(b'\x89PNG\r\n\x1a\n'))

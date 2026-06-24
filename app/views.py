@@ -26,42 +26,36 @@ class CartaGraficoIMR(APIView):
 
 class GeradorCEP(APIView):
     def post (self,request,*args, **kwargs):
-        tipo_carta = request.data.get("chart")
-        dados_medicao = request.data.get("measurements")
-        especificacoes = request.data.get("especificacoes", {})
-        intervalo_probabilidade = request.data.get("intervalo_probabilidade", {})
+        data_lower = {str(k).lower(): v for k, v in request.data.items()}
+        
+        tipo_carta = data_lower.get("carta", data_lower.get("chart", ""))
+        dados_medicao = data_lower.get("amostras", data_lower.get("measurements", {}))
 
         if not tipo_carta or not dados_medicao:
             return Response(
-                {"erro": "Você precisa enviar o tipo ('chart') e os dados ('measurements')."}, 
+                {"erro": "Você precisa enviar o tipo ('carta') e os dados ('amostras')."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        tipo_carta_lower = str(tipo_carta).lower()
+
         try:
-            if tipo_carta == "Xr":
-                nova_carta = Media_Amplitude.objects.create(data=dados_medicao,
-                                                            lse=especificacoes.get('LSE'),
-                                                            lie=especificacoes.get('LIE'),
-                                                            x1=intervalo_probabilidade.get('x1'),
-                                                            x0=intervalo_probabilidade.get('x0'))
+            if tipo_carta_lower == "xr":
+                print("aqui ta passando")
+                nova_carta = Media_Amplitude.objects.create(data=dados_medicao)
+                print ("criou a carta")
                 return GerarRelatorioXr(nova_carta)
 
-            elif tipo_carta == "IMR":
-                nova_carta = imr.objects.create(
-                    data=dados_medicao,
-                    lse=especificacoes.get('LSE', 0),
-                    lie=especificacoes.get('LIE', 0),
-                    x1=intervalo_probabilidade.get('x1', 0),
-                    x0=intervalo_probabilidade.get('x0', 0)
-                )
+            elif tipo_carta_lower in ["imr", "mri"]:
+                nova_carta = imr.objects.create(data=dados_medicao)
                 return GerarRelatorioIMR(nova_carta)
             
-            elif tipo_carta =="u":
-                nova_carta = u.objects.create(data=dados_medicao)
+            elif tipo_carta_lower == "u":
+                nova_carta = u.objects.create(data=dados_medicao, regra=data_lower.get("defeituosos", ""))
                 return GerarRelatorioU(nova_carta)
             
-            elif tipo_carta == "p":
-                nova_carta = p.objects.create(data=dados_medicao)
+            elif tipo_carta_lower == "p":
+                nova_carta = p.objects.create(data=dados_medicao, regra=data_lower.get("defeituosos", ""))
                 return GerarRelatorioP(nova_carta)
             else:
                 return Response(
