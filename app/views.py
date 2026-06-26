@@ -13,6 +13,10 @@ def pagina_inicial(request):
     return render(request, 'front/index.html')
 
 
+def pagina_monitoramento(request):
+    return render(request, 'front/monitoramento.html')
+
+
 class CartaGraficoIMR(APIView):
         def get(self, request,carta_id):
             try:

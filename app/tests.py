@@ -71,7 +71,7 @@ class RelatorioXrTabelaDadosBrutosTest(TestCase):
         carta = Media_Amplitude.objects.create(
             data=DADOS_XR, lse=10.5, lie=9.5, x1=10.5, x0=9.5
         )
-        self.assertFalse(carta.is_capaz)
+        self.assertFalse(carta.is_capaz["geral"])
         html = render_to_string(
             "front/relatorios/RelatorioXr.html",
             {"carta": carta, "graficox": "", "graficor": "", "dados_tabela": carta.data.items()},
@@ -115,17 +115,17 @@ class CartaXRProbabilidadesEspeciaisTest(TestCase):
         carta = Media_Amplitude.objects.create(data=dados_mock)
         
         # LIE e LSE devem ser sobrepostos
-        expected_lie = round(0.99 * carta.lic_media, 3)
-        expected_lse = round(1.2 * carta.lsc_media, 3)
+        expected_lie = round(0.98 * carta.lic_media, 3)
+        expected_lse = round(1.1 * carta.lsc_media, 3)
         
         self.assertEqual(carta.lie, expected_lie)
         self.assertEqual(carta.lse, expected_lse)
         
         self.assertIn("margem_deslocada", carta.probabilidade)
-        self.assertIn("valor_x_95", carta.probabilidade)
+        self.assertIn("valor_x_96", carta.probabilidade)
         
         self.assertGreaterEqual(carta.probabilidade["margem_deslocada"], 0)
-        self.assertIsNotNone(carta.probabilidade["valor_x_95"])
+        self.assertIsNotNone(carta.probabilidade["valor_x_96"])
 
 class CartaAceitacaoTest(TestCase):
     def test_is_capaz_longo_curto_prazo(self):
@@ -139,14 +139,14 @@ class CartaAceitacaoTest(TestCase):
         # Pode ser que os dados simulados não atinjam PPM < 990 por causa da relação
         # de R_bar / sigma para essas amostras pequenas, mas o is_capaz deve rodar sem quebrar
         # e refletir a lógica. Para este teste (RED) exigimos que seja boolean.
-        self.assertIsInstance(carta_ok.is_capaz, bool)
+        self.assertIsInstance(carta_ok.is_capaz, dict)
         
         dados_reprovado_curto = {
             "A1": [9.9, 10.1, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
             "A2": [20.0, 9.9, 10.1, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0], # Regra 1!
         }
         carta_ruim = Media_Amplitude.objects.create(data=dados_reprovado_curto)
-        self.assertFalse(carta_ruim.is_capaz)
+        self.assertFalse(carta_ruim.is_capaz["geral"])
 
 class ProbabilidadeBinomialTest(TestCase):
     def test_calculo_probabilidade_binomial(self):
@@ -256,7 +256,7 @@ class CartaCapacidadeEDicionarioTest(TestCase):
         }
         carta = Media_Amplitude.objects.create(data=dados)
         
-        self.assertIn("binomial_50_45", carta.probabilidade)
+        self.assertIn("binomial_100_85", carta.probabilidade)
         self.assertIn("margem_deslocada", carta.probabilidade)
         # Campos antigos não devem existir mais
         self.assertNotIn("menor_x1", carta.probabilidade)

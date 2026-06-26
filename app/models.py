@@ -34,13 +34,13 @@ class Carta(models.Model):
                     curva_normal = statistics.NormalDist(mu=media_central, sigma=self.dp_geral)
                     prob_dentro = curva_normal.cdf(self.lse) - curva_normal.cdf(self.lie)
                     ppm = (1 - prob_dentro) * 1_000_000
-                    longo_prazo_ok = ppm < 990
+                    longo_prazo_ok = ppm < 890
                     return {
                         "geral": curto_prazo_ok and longo_prazo_ok,
                         "curto_prazo": curto_prazo_ok,
                         "longo_prazo": longo_prazo_ok,
                         "motivo_curto": "Processo estável" if curto_prazo_ok else "Reprovado devido a pontos fora de controle (Regra 1)",
-                        "motivo_longo": "Processo atende à proporção exigida (PPM < 990)" if longo_prazo_ok else "Longo prazo: ppm obtido < ppm requerido onde o pmm requerido é 990"
+                        "motivo_longo": "Processo atende à proporção exigida (PPM < 890)" if longo_prazo_ok else "Longo prazo: ppm obtido < ppm requerido onde o ppm requerido é 890"
                     }
                 except Exception:
                     pass
@@ -52,7 +52,7 @@ class Carta(models.Model):
                 "curto_prazo": curto_prazo_ok,
                 "longo_prazo": geral,
                 "motivo_curto": "Processo estável" if curto_prazo_ok else "Reprovado (Regra 1)",
-                "motivo_longo": "Cp e Cpk satisfatórios (>= 1.0)" if geral else "Longo prazo: ppm obtido < ppm requerido onde o pmm requerido é 990"
+                "motivo_longo": "Cp e Cpk satisfatórios (>= 1.0)" if geral else "Longo prazo: ppm obtido < ppm requerido onde o ppm requerido é 890"
             }
         return None
 
@@ -193,8 +193,8 @@ class Media_Amplitude(Carta):
                 self.lic_amp = round( self.media_amplitude*self.d3, 3)
                 self.lsc_amp = round( self.media_amplitude*self.d4, 3)
                 # Issue #6: LIE e LSE calculados dinamicamente
-                self.lie = round(0.99 * self.lic_media, 3)
-                self.lse = round(1.2 * self.lsc_media, 3)
+                self.lie = round(0.98 * self.lic_media, 3)
+                self.lse = round(1.1 * self.lsc_media, 3)
                 
                 if self.dp_geral > 0:
                     self.cp = round(((self.lse-self.lie)/(6*self.dp_geral)),3)
@@ -204,24 +204,24 @@ class Media_Amplitude(Carta):
 
                     curva_normal = statistics.NormalDist(mu=self.media_geral, sigma=self.dp_geral)
                     
-                    # Issue #6: Probabilidade deslocada
-                    mu_deslocada = self.media_geral + (1 * self.dp_geral)
+                    # Issue #6: Probabilidade deslocada (+1.5σ)
+                    mu_deslocada = self.media_geral + (1.5 * self.dp_geral)
                     curva_deslocada = statistics.NormalDist(mu=mu_deslocada, sigma=self.dp_geral)
                     margem_deslocada = (curva_deslocada.cdf(self.lse) - curva_deslocada.cdf(self.lie)) * 100
                     
-                    # Issue #6: Valor X para 95%
-                    valor_x_95 = curva_normal.inv_cdf(0.95)
+                    # Issue #6: Valor X para 96%
+                    valor_x_96 = curva_normal.inv_cdf(0.96)
                     
                     
-                    # Binomial fixa (n=50, k=45)
+                    # Binomial fixa (n=100, k=85)
                     from app.utils import calcular_probabilidade_binomial
                     prob_dentro = curva_normal.cdf(self.lse) - curva_normal.cdf(self.lie)
-                    prob_binomial = calcular_probabilidade_binomial(n=50, k=45, p=prob_dentro, acumulada=True) * 100
+                    prob_binomial = calcular_probabilidade_binomial(n=100, k=85, p=prob_dentro, acumulada=True) * 100
                     
                     self.probabilidade= {
                         "margem_deslocada": round(margem_deslocada, 3),
-                        "valor_x_95": round(valor_x_95, 3),
-                        "binomial_50_45": round(prob_binomial, 3)
+                        "valor_x_96": round(valor_x_96, 3),
+                        "binomial_100_85": round(prob_binomial, 3)
                     }
                 
                 lista_das_medias = list(self.media.values()) 
@@ -390,8 +390,8 @@ class imr(Carta):
         self.lc_mr = self.am_media
         
         # Issue #6: LIE e LSE calculados dinamicamente
-        self.lie = round(0.99 * self.lic_i, 3)
-        self.lse = round(1.2 * self.lsc_i, 3)
+        self.lie = round(0.98 * self.lic_i, 3)
+        self.lse = round(1.1 * self.lsc_i, 3)
         
         # Issue #2 e #6: Cp, Cpk e Probabilidades
         if self.dp_geral > 0:
@@ -402,24 +402,24 @@ class imr(Carta):
 
             curva_normal = statistics.NormalDist(mu=self.lc_i, sigma=self.dp_geral)
             
-            # Issue #6: Probabilidade deslocada
-            mu_deslocada = self.lc_i + (1 * self.dp_geral)
+            # Issue #6: Probabilidade deslocada (+1.5σ)
+            mu_deslocada = self.lc_i + (1.5 * self.dp_geral)
             curva_deslocada = statistics.NormalDist(mu=mu_deslocada, sigma=self.dp_geral)
             margem_deslocada = (curva_deslocada.cdf(self.lse) - curva_deslocada.cdf(self.lie)) * 100
             
-            # Issue #6: Valor X para 95%
-            valor_x_95 = curva_normal.inv_cdf(0.95)
+            # Issue #6: Valor X para 96%
+            valor_x_96 = curva_normal.inv_cdf(0.96)
             
             
-            # Binomial fixa (n=50, k=45)
+            # Binomial fixa (n=100, k=85)
             from app.utils import calcular_probabilidade_binomial
             prob_dentro = curva_normal.cdf(self.lse) - curva_normal.cdf(self.lie)
-            prob_binomial = calcular_probabilidade_binomial(n=50, k=45, p=prob_dentro, acumulada=True) * 100
+            prob_binomial = calcular_probabilidade_binomial(n=100, k=85, p=prob_dentro, acumulada=True) * 100
             
             self.probabilidade = {
                 "margem_deslocada": round(margem_deslocada, 3),
-                "valor_x_95": round(valor_x_95, 3),
-                "binomial_50_45": round(prob_binomial, 3)
+                "valor_x_96": round(valor_x_96, 3),
+                "binomial_100_85": round(prob_binomial, 3)
             }
         
         # Issue #2: Alertas Western Electric
@@ -432,3 +432,24 @@ class imr(Carta):
             )
     
     
+
+class LeituraBarulho(models.Model):
+    """Um ponto na carta p de barulho: 5 minutos de dados acumulados."""
+    timestamp = models.DateTimeField(auto_now_add=True)
+    total_picos = models.IntegerField()
+    n = models.IntegerField(default=6000)
+    p = models.FloatField(default=0)
+    lc = models.FloatField(default=0)
+    lsc = models.FloatField(default=0)
+    lic = models.FloatField(default=0)
+    alertas = models.JSONField(default=dict)
+    fora_controle = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.n > 0:
+            self.p = self.total_picos / self.n
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Leitura {self.timestamp}: p={self.p:.4f}"
+

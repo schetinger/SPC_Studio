@@ -1,0 +1,745 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPC Studio — Monitoramento de Barulho</title>
+    <meta name="description" content="Monitoramento em tempo real de picos de barulho com carta de controle p e regras Western Electric.">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-main: #0D1117;
+            --bg-sidebar: #161B22;
+            --bg-card: #21262D;
+            --bg-input: #010409;
+            --text-primary: #C9D1D9;
+            --text-secondary: #8B949E;
+            --accent: #58A6FF;
+            --accent-hover: #3182CE;
+            --border: #30363D;
+            --success: #3FB950;
+            --success-bg: rgba(63, 185, 80, 0.12);
+            --danger: #F85149;
+            --danger-bg: rgba(248, 81, 73, 0.12);
+            --warning: #D29922;
+            --warning-bg: rgba(210, 153, 34, 0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar { width: 260px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 16px; z-index: 10; flex-shrink: 0; }
+        .sidebar-logo { font-size: 1.2rem; font-weight: 700; color: #FFF; display: flex; align-items: center; gap: 12px; margin-bottom: 40px; padding-left: 8px; }
+        .sidebar-logo svg { color: var(--accent); }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 6px; color: var(--text-secondary); text-decoration: none; font-weight: 500; transition: all 0.2s ease; margin-bottom: 8px; cursor: pointer; }
+        .nav-item:hover { background-color: rgba(139, 148, 158, 0.1); color: var(--text-primary); }
+        .nav-item.active { background-color: rgba(88, 166, 255, 0.15); color: var(--accent); }
+
+        /* Main Content */
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+        .header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 32px; background-color: var(--bg-main); flex-shrink: 0; }
+        .header h1 { font-size: 1rem; font-weight: 600; }
+
+        /* Dashboard Area */
+        .dashboard { flex: 1; padding: 24px 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+
+        /* Status Cards Row */
+        .status-row { display: flex; gap: 16px; flex-shrink: 0; }
+
+        .status-card {
+            flex: 1;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .status-card .icon-wrapper {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .status-card .info h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .status-card .info .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Card: Status Barulho */
+        .card-barulho .icon-wrapper { background-color: var(--success-bg); }
+        .card-barulho .icon-wrapper svg { color: var(--success); }
+        .card-barulho .value { color: var(--success); }
+
+        .card-barulho.alerta {
+            border-color: var(--danger);
+            box-shadow: 0 0 20px rgba(248, 81, 73, 0.15);
+            animation: pulseAlert 2s ease-in-out infinite;
+        }
+        .card-barulho.alerta .icon-wrapper { background-color: var(--danger-bg); }
+        .card-barulho.alerta .icon-wrapper svg { color: var(--danger); }
+        .card-barulho.alerta .value { color: var(--danger); }
+
+        @keyframes pulseAlert {
+            0%, 100% { box-shadow: 0 0 20px rgba(248, 81, 73, 0.15); }
+            50% { box-shadow: 0 0 30px rgba(248, 81, 73, 0.3); }
+        }
+
+        /* Card: ESP32 Conexão */
+        .card-esp .icon-wrapper { background-color: var(--warning-bg); }
+        .card-esp .icon-wrapper svg { color: var(--warning); }
+        .card-esp .value { color: var(--warning); }
+
+        .card-esp.online .icon-wrapper { background-color: var(--success-bg); }
+        .card-esp.online .icon-wrapper svg { color: var(--success); }
+        .card-esp.online .value { color: var(--success); }
+
+        /* Card: Toggle LED/Speaker */
+        .card-toggle .icon-wrapper { background-color: rgba(88, 166, 255, 0.12); }
+        .card-toggle .icon-wrapper svg { color: var(--accent); }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+            border-radius: 28px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-secondary);
+            transition: all 0.3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: rgba(88, 166, 255, 0.3);
+            border-color: var(--accent);
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px);
+            background-color: var(--accent);
+        }
+        input:disabled + .slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .timer-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 30px;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            flex: 1;
+            min-height: 350px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-shrink: 0;
+        }
+
+        .chart-header h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+            font-size: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .legend-line {
+            width: 16px;
+            height: 2px;
+        }
+
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+
+        /* Connection badge */
+        .connection-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .connection-dot.online { background-color: var(--success); box-shadow: 0 0 6px var(--success); }
+        .connection-dot.offline { background-color: var(--danger); }
+
+        /* Empty Chart State */
+        .empty-chart {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            gap: 12px;
+        }
+        .empty-chart svg { width: 48px; height: 48px; color: var(--border); }
+
+        /* Info bar */
+        .info-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 16px;
+            background-color: var(--bg-sidebar);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .info-bar .separator { width: 1px; height: 16px; background-color: var(--border); }
+
+        .info-bar .stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .info-bar .stat strong {
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 20h20"/>
+                <path d="M5 20V8l5-3 5 5 5-7v17"/>
+            </svg>
+            SPC Studio
+        </div>
+
+        <nav>
+            <a href="{% url 'home' %}" class="nav-item">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Novo Relatório
+            </a>
+            <a href="{% url 'monitoramento' %}" class="nav-item active">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                Monitoramento
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="header">
+            <h1>Workspace / <span style="color:var(--text-secondary)">Monitoramento de Barulho em Tempo Real</span></h1>
+        </header>
+
+        <div class="dashboard">
+
+            <!-- Status Cards -->
+            <div class="status-row">
+                <!-- Status Barulho -->
+                <div id="cardBarulho" class="status-card card-barulho">
+                    <div class="icon-wrapper">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 18V5l12-2v13"/>
+                            <circle cx="6" cy="18" r="3"/>
+                            <circle cx="18" cy="16" r="3"/>
+                        </svg>
+                    </div>
+                    <div class="info">
+                        <h3>Status Barulho</h3>
+                        <div id="statusBarulhoText" class="value">Aguardando dados…</div>
+                    </div>
+                </div>
+
+                <!-- ESP32 Conexão -->
+                <div id="cardEsp" class="status-card card-esp">
+                    <div class="icon-wrapper">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
+                            <rect x="9" y="9" width="6" height="6"/>
+                            <line x1="9" y1="1" x2="9" y2="4"/>
+                            <line x1="15" y1="1" x2="15" y2="4"/>
+                            <line x1="9" y1="20" x2="9" y2="23"/>
+                            <line x1="15" y1="20" x2="15" y2="23"/>
+                            <line x1="20" y1="9" x2="23" y2="9"/>
+                            <line x1="20" y1="14" x2="23" y2="14"/>
+                            <line x1="1" y1="9" x2="4" y2="9"/>
+                            <line x1="1" y1="14" x2="4" y2="14"/>
+                        </svg>
+                    </div>
+                    <div class="info">
+                        <h3>ESP32</h3>
+                        <div id="statusEspText" class="value">
+                            <span id="espDot" class="connection-dot offline"></span>
+                            Desconectado
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toggle LED/Speaker -->
+                <div class="status-card card-toggle">
+                    <div class="icon-wrapper">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                        </svg>
+                    </div>
+                    <div class="info">
+                        <h3>Alerta Sonoro</h3>
+                        <div class="toggle-container">
+                            <label class="switch">
+                                <input type="checkbox" id="toggleAlerta" onchange="toggleLed(this.checked)" disabled>
+                                <span class="slider"></span>
+                            </label>
+                            <span id="timerDisplay" class="timer-display">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2>Carta P — Proporção de Picos de Barulho</h2>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <span class="legend-dot" style="background:#58A6FF"></span>
+                            Pontos p
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-line" style="background:#3FB950"></span>
+                            LC
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-line" style="background:#F85149; border-top:1px dashed #F85149; height:0;"></span>
+                            LSC / LIC
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <div id="emptyChart" class="empty-chart">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                        <p>Aguardando dados do ESP32...</p>
+                        <p style="font-size:0.75rem;">Os pontos aparecerão a cada 5 minutos (10 envios de 30s)</p>
+                    </div>
+                    <canvas id="chartP" style="display:none;"></canvas>
+                </div>
+            </div>
+
+            <!-- Info bar -->
+            <div class="info-bar">
+                <div class="stat">Envios no ciclo: <strong id="enviosCiclo">0</strong> / 10</div>
+                <div class="separator"></div>
+                <div class="stat">Pontos no gráfico: <strong id="pontosGrafico">0</strong> / 25</div>
+                <div class="separator"></div>
+                <div class="stat">Último ponto: <strong id="ultimoPonto">--:--</strong></div>
+                <div class="separator"></div>
+                <div class="stat">WebSocket: <strong id="wsStatus">Conectando…</strong></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // ─── State ───────────────────────────────────────────────
+    let chart = null;
+    let ws = null;
+    let timerInterval = null;
+    let timerSeconds = 0;
+    let espOnline = false;
+    let enviosCiclo = 0;
+
+    // ─── Chart.js Setup ──────────────────────────────────────
+    function criarGrafico(historico) {
+        const ctx = document.getElementById('chartP').getContext('2d');
+
+        const labels = historico.map(h => h.timestamp);
+        const dataP = historico.map(h => h.p);
+        const pointColors = historico.map(h => h.fora_controle ? '#F85149' : '#58A6FF');
+        const pointRadius = historico.map(h => h.fora_controle ? 6 : 4);
+
+        // Use limits from last point if available
+        const lastPt = historico[historico.length - 1];
+        const lc = lastPt ? lastPt.lc || 0 : 0;
+        const lsc = lastPt ? lastPt.lsc || 0 : 0;
+        const lic = lastPt ? lastPt.lic || 0 : 0;
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Proporção p',
+                    data: dataP,
+                    borderColor: '#58A6FF',
+                    backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                    pointBackgroundColor: pointColors,
+                    pointBorderColor: pointColors,
+                    pointRadius: pointRadius,
+                    pointHoverRadius: 7,
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 600, easing: 'easeInOutQuart' },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                        ticks: { color: '#8B949E', font: { family: 'JetBrains Mono', size: 11 } },
+                    },
+                    y: {
+                        grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                        ticks: {
+                            color: '#8B949E',
+                            font: { family: 'JetBrains Mono', size: 11 },
+                            callback: v => v.toFixed(4),
+                        },
+                        beginAtZero: true,
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#21262D',
+                        titleColor: '#C9D1D9',
+                        bodyColor: '#C9D1D9',
+                        borderColor: '#30363D',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: ctx => `p = ${ctx.parsed.y.toFixed(6)}`,
+                        }
+                    },
+                    annotation: {
+                        annotations: {
+                            lcLine: {
+                                type: 'line',
+                                yMin: lc, yMax: lc,
+                                borderColor: '#3FB950',
+                                borderWidth: 2,
+                                label: {
+                                    display: true,
+                                    content: `LC = ${lc.toFixed(5)}`,
+                                    position: 'start',
+                                    backgroundColor: 'rgba(63, 185, 80, 0.15)',
+                                    color: '#3FB950',
+                                    font: { size: 10, family: 'JetBrains Mono' },
+                                }
+                            },
+                            lscLine: {
+                                type: 'line',
+                                yMin: lsc, yMax: lsc,
+                                borderColor: '#F85149',
+                                borderWidth: 1.5,
+                                borderDash: [6, 4],
+                                label: {
+                                    display: true,
+                                    content: `LSC = ${lsc.toFixed(5)}`,
+                                    position: 'start',
+                                    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+                                    color: '#F85149',
+                                    font: { size: 10, family: 'JetBrains Mono' },
+                                }
+                            },
+                            licLine: {
+                                type: 'line',
+                                yMin: lic, yMax: lic,
+                                borderColor: '#F85149',
+                                borderWidth: 1.5,
+                                borderDash: [6, 4],
+                                label: {
+                                    display: true,
+                                    content: `LIC = ${lic.toFixed(5)}`,
+                                    position: 'start',
+                                    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+                                    color: '#F85149',
+                                    font: { size: 10, family: 'JetBrains Mono' },
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function atualizarGrafico(dados) {
+        const emptyChart = document.getElementById('emptyChart');
+        const canvas = document.getElementById('chartP');
+
+        if (!chart) {
+            emptyChart.style.display = 'none';
+            canvas.style.display = 'block';
+            criarGrafico(dados.historico);
+        } else {
+            // Update data
+            const historico = dados.historico;
+            chart.data.labels = historico.map(h => h.timestamp);
+            chart.data.datasets[0].data = historico.map(h => h.p);
+            chart.data.datasets[0].pointBackgroundColor = historico.map(h => h.fora_controle ? '#F85149' : '#58A6FF');
+            chart.data.datasets[0].pointBorderColor = historico.map(h => h.fora_controle ? '#F85149' : '#58A6FF');
+            chart.data.datasets[0].pointRadius = historico.map(h => h.fora_controle ? 6 : 4);
+
+            // Update annotation lines
+            const ann = chart.options.plugins.annotation.annotations;
+            ann.lcLine.yMin = dados.lc; ann.lcLine.yMax = dados.lc;
+            ann.lcLine.label.content = `LC = ${dados.lc.toFixed(5)}`;
+            ann.lscLine.yMin = dados.lsc; ann.lscLine.yMax = dados.lsc;
+            ann.lscLine.label.content = `LSC = ${dados.lsc.toFixed(5)}`;
+            ann.licLine.yMin = dados.lic; ann.licLine.yMax = dados.lic;
+            ann.licLine.label.content = `LIC = ${dados.lic.toFixed(5)}`;
+
+            chart.update('default');
+        }
+
+        // Update info bar
+        document.getElementById('pontosGrafico').textContent = dados.historico.length;
+        document.getElementById('ultimoPonto').textContent = dados.timestamp;
+        enviosCiclo = 0;
+        document.getElementById('enviosCiclo').textContent = enviosCiclo;
+
+        // Update status card
+        atualizarStatusBarulho(dados.fora_controle);
+    }
+
+    function atualizarStatusBarulho(foraControle) {
+        const card = document.getElementById('cardBarulho');
+        const text = document.getElementById('statusBarulhoText');
+        if (foraControle) {
+            card.classList.add('alerta');
+            text.textContent = 'Barulho extrapolado!';
+        } else {
+            card.classList.remove('alerta');
+            text.textContent = 'Dentro do controle';
+        }
+    }
+
+    // ─── ESP Status ──────────────────────────────────────────
+    function atualizarEspStatus(online) {
+        espOnline = online;
+        const card = document.getElementById('cardEsp');
+        const text = document.getElementById('statusEspText');
+        const dot = document.getElementById('espDot');
+        const toggle = document.getElementById('toggleAlerta');
+
+        if (online) {
+            card.classList.add('online');
+            dot.className = 'connection-dot online';
+            text.innerHTML = '<span id="espDot" class="connection-dot online"></span> Online';
+            toggle.disabled = false;
+        } else {
+            card.classList.remove('online');
+            dot.className = 'connection-dot offline';
+            text.innerHTML = '<span id="espDot" class="connection-dot offline"></span> Desconectado';
+            toggle.disabled = true;
+        }
+    }
+
+    // ─── LED Toggle ──────────────────────────────────────────
+    function toggleLed(checked) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        const comando = checked ? 'ligar_alerta' : 'desligar_alerta';
+        ws.send(JSON.stringify({ comando: comando }));
+    }
+
+    function atualizarToggleStatus(dados) {
+        const toggle = document.getElementById('toggleAlerta');
+        const display = document.getElementById('timerDisplay');
+
+        toggle.checked = dados.ligado;
+
+        if (dados.ligado) {
+            timerSeconds = dados.timer || 60;
+            iniciarTimer();
+        } else {
+            pararTimer();
+            display.textContent = '--';
+        }
+    }
+
+    function iniciarTimer() {
+        pararTimer();
+        atualizarTimerDisplay();
+        timerInterval = setInterval(() => {
+            timerSeconds--;
+            if (timerSeconds <= 0) {
+                pararTimer();
+                document.getElementById('timerDisplay').textContent = '--';
+                document.getElementById('toggleAlerta').checked = false;
+            } else {
+                atualizarTimerDisplay();
+            }
+        }, 1000);
+    }
+
+    function pararTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    function atualizarTimerDisplay() {
+        const display = document.getElementById('timerDisplay');
+        display.textContent = timerSeconds + 's';
+    }
+
+    // ─── WebSocket ───────────────────────────────────────────
+    function conectarWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${window.location.host}/ws/monitor/`);
+
+        ws.onopen = () => {
+            document.getElementById('wsStatus').textContent = 'Conectado';
+            document.getElementById('wsStatus').style.color = '#3FB950';
+        };
+
+        ws.onclose = () => {
+            document.getElementById('wsStatus').textContent = 'Desconectado';
+            document.getElementById('wsStatus').style.color = '#F85149';
+            atualizarEspStatus(false);
+            // Reconectar após 3s
+            setTimeout(conectarWebSocket, 3000);
+        };
+
+        ws.onerror = () => {
+            document.getElementById('wsStatus').textContent = 'Erro';
+            document.getElementById('wsStatus').style.color = '#F85149';
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            switch (data.tipo) {
+                case 'estado_inicial':
+                    // Carregar histórico existente
+                    if (data.historico && data.historico.length > 0) {
+                        document.getElementById('emptyChart').style.display = 'none';
+                        document.getElementById('chartP').style.display = 'block';
+                        criarGrafico(data.historico);
+                        document.getElementById('pontosGrafico').textContent = data.historico.length;
+                        const last = data.historico[data.historico.length - 1];
+                        if (last) {
+                            document.getElementById('ultimoPonto').textContent = last.timestamp;
+                            atualizarStatusBarulho(last.fora_controle);
+                        }
+                    }
+                    if (data.led_ligado) {
+                        document.getElementById('toggleAlerta').checked = true;
+                    }
+                    break;
+
+                case 'novo_ponto':
+                    atualizarGrafico(data);
+                    break;
+
+                case 'esp_status':
+                    atualizarEspStatus(data.online);
+                    break;
+
+                case 'status_led':
+                    atualizarToggleStatus(data);
+                    break;
+            }
+        };
+    }
+
+    // ─── Init ────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        conectarWebSocket();
+    });
+    </script>
+
+</body>
+</html>

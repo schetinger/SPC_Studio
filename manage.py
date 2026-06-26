@@ -3,7 +3,7 @@
 import os
 import sys
 
-
+#para rodar o projeto ative a env e rode python manage.py runserver
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cep.settings')

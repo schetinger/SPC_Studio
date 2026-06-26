@@ -25,9 +25,9 @@
         {% if carta.lse > 0 %}
         <p><strong>Capacidade do Processo (Cp):</strong> {{ carta.cp }}</p>
         <p><strong>Índice de Centralização (Cpk):</strong> {{ carta.cpk }}</p>
-        <p><strong>Margem de Sucesso (+1σ deslocamento):</strong> {{ carta.probabilidade.margem_deslocada }}%</p>
-        <p><strong>Valor X para 95% de sucesso:</strong> {{ carta.probabilidade.valor_x_95 }}</p>
-        <p><strong>Probabilidade Binomial (Pelo menos 45/50 boas):</strong> {{ carta.probabilidade.binomial_50_45 }}%</p>
+        <p><strong>Margem de Sucesso (+1.5σ deslocamento):</strong> {{ carta.probabilidade.margem_deslocada }}%</p>
+        <p><strong>Valor X para 96% de sucesso:</strong> {{ carta.probabilidade.valor_x_96 }}</p>
+        <p><strong>Probabilidade Binomial (Pelo menos 85/100 boas):</strong> {{ carta.probabilidade.binomial_100_85 }}%</p>
         {% endif %}
     </div>
 
