@@ -58,6 +58,12 @@ class EspConsumer(AsyncWebsocketConsumer):
         except (json.JSONDecodeError, TypeError):
             return
 
+        # Envia um ACK imediatamente para evitar que o Cloudflare derrube a conexão
+        try:
+            await self.send(text_data=json.dumps({"ack": True}))
+        except Exception:
+            pass
+
         # Processar envio no acumulador (sync por causa do ORM)
         resultado = await database_sync_to_async(
             self.get_acumulador().receber_envio
