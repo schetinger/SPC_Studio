@@ -718,6 +718,9 @@
                     if (data.led_ligado) {
                         document.getElementById('toggleAlerta').checked = true;
                     }
+                    if (data.esp_online !== undefined) {
+                        atualizarEspStatus(data.esp_online);
+                    }
                     break;
 
                 case 'novo_ponto':

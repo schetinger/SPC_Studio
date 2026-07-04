@@ -16,6 +16,7 @@ class EspConsumer(AsyncWebsocketConsumer):
     # Compartilhado entre todas as conexões ESP (class-level)
     _acumulador = None
     _timer_desligar = None
+    _connected_esps = 0
 
     @classmethod
     def get_acumulador(cls):
@@ -24,6 +25,7 @@ class EspConsumer(AsyncWebsocketConsumer):
         return cls._acumulador
 
     async def connect(self):
+        EspConsumer._connected_esps += 1
         await self.channel_layer.group_add("esp_devices", self.channel_name)
         await self.accept()
 
@@ -37,6 +39,7 @@ class EspConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
+        EspConsumer._connected_esps = max(0, EspConsumer._connected_esps - 1)
         await self.channel_layer.group_discard("esp_devices", self.channel_name)
 
         # Notificar browsers que ESP desconectou
@@ -114,6 +117,7 @@ class MonitorConsumer(AsyncWebsocketConsumer):
             "tipo": "estado_inicial",
             "historico": historico,
             "led_ligado": EspConsumer._timer_desligar is not None,
+            "esp_online": EspConsumer._connected_esps > 0,
         }))
 
     async def disconnect(self, close_code):
@@ -132,7 +136,7 @@ class MonitorConsumer(AsyncWebsocketConsumer):
                 "esp_devices",
                 {
                     "type": "comando_alerta",
-                    "dados": {"led": True, "speaker": True}
+                    "dados": {"comando_alerta": True}
                 }
             )
 
@@ -166,7 +170,7 @@ class MonitorConsumer(AsyncWebsocketConsumer):
             pass
 
     async def _desligar(self):
-        """Desliga LED/speaker e notifica todos."""
+        """Desliga LED/speaker/display e notifica todos."""
         # Cancelar timer se existir
         if EspConsumer._timer_desligar is not None:
             EspConsumer._timer_desligar.cancel()
@@ -177,7 +181,7 @@ class MonitorConsumer(AsyncWebsocketConsumer):
             "esp_devices",
             {
                 "type": "comando_alerta",
-                "dados": {"led": False, "speaker": False}
+                "dados": {"comando_alerta": False}
             }
         )
 
