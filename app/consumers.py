@@ -57,6 +57,10 @@ class EspConsumer(AsyncWebsocketConsumer):
             
             # Ignorar pings de heartbeat (application-level)
             if "ping" in data:
+                try:
+                    await self.send(text_data=json.dumps({"pong": True}))
+                except Exception:
+                    pass
                 return
                 
             if "picos" not in data:
