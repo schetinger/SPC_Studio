@@ -29,6 +29,10 @@ class EspConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add("esp_devices", self.channel_name)
         await self.accept()
 
+        # Enviar estado atual do alerta para o ESP caso ele tenha acabado de reconectar
+        if EspConsumer._timer_desligar is not None:
+            await self.send(text_data=json.dumps({"comando_alerta": True}))
+
         # Notificar browsers que ESP conectou
         await self.channel_layer.group_send(
             "browser_monitors",
