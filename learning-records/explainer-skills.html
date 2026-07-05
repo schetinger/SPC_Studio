@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Skills: Debugging & Refactoring</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f8fafc;
+        }
+        h1 {
+            color: #0f172a;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 0.5rem;
+        }
+        h2 {
+            color: #1e293b;
+            margin-top: 2rem;
+        }
+        .skill-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #3b82f6;
+        }
+        .skill-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        code {
+            background-color: #e2e8f0;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .try-this {
+            background-color: #dbeafe;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .try-this strong {
+            color: #1e40af;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .concept {
+            background-color: #fef3c7;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            border-left: 4px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <h1>Além do Grill-Me: Manutenção, Debug e Refatoração</h1>
+    
+    <p>É excelente que você já domine o fluxo de criação de features (<code>/grill-me</code> &rarr; <code>/to-issues</code> &rarr; <code>/tdd</code>). Esse é o coração do desenvolvimento guiado por agentes!</p>
+    
+    <p>Agora, vamos expandir sua <em>Zone of Proximal Development</em> para lidar com código existente, bugs e melhoria contínua.</p>
+
+    <div class="concept">
+        <strong>💡 Existe uma skill específica para "Debug"?</strong><br>
+        Curiosamente, <strong>não existe uma skill <code>/debug</code></strong> isolada! O motivo é que debugar com agentes funciona melhor quando combinamos a investigação conversacional com o TDD. Se você encontrar um bug, o fluxo ideal é:
+        <ol>
+            <li>Explicar o bug para o agente na conversa normal (fornecendo logs ou descrevendo o problema).</li>
+            <li>Pedir para o agente investigar a causa raiz.</li>
+            <li>Chamar a skill <code>/tdd</code> para escrever um teste que <strong>falhe</strong> reproduzindo o bug, e então consertá-lo.</li>
+        </ol>
+    </div>
+
+    <h2>Skills para Expandir seu Arsenal</h2>
+
+    <div class="skill-card">
+        <div class="skill-title">🔍 /review</div>
+        <p><strong>Para que serve:</strong> Revisa mudanças recentes (um branch, PR ou alterações não commitadas) garantindo que o código segue as diretrizes do projeto e atende aos requisitos da Spec original.</p>
+        <p><strong>Quando usar para Debug:</strong> Se você implementou algo e começou a dar erro, rodar um <code>/review</code> pode fazer o agente encontrar inconsistências lógicas ou violações de padrões de forma estruturada antes mesmo de você começar a caçar o bug manualmente.</p>
+        <div class="try-this">
+            <strong>🚀 Try this:</strong>
+            <p>Faça uma pequena alteração intencional no código (como mudar o nome de uma variável ou apagar uma validação em <code>models.py</code>) e diga ao agente: <em>"Invoque a skill /review nas alterações recentes."</em></p>
+        </div>
+    </div>
+
+    <div class="skill-card">
+        <div class="skill-title">🏗️ /improve-codebase-architecture</div>
+        <p><strong>Para que serve:</strong> Encontra oportunidades de melhoria estrutural (refatoração) baseando-se no vocabulário do domínio (<code>CONTEXT.md</code> / <code>AGENTS.md</code> / <code>GLOSSARY.md</code>) e em decisões de arquitetura documentadas.</p>
+        <p><strong>Quando usar para Debug:</strong> Bugs frequentes geralmente nascem de arquiteturas confusas. Se um módulo (ex: <code>consumers.py</code>) está muito grande e complexo, invocar essa skill vai quebrar o problema em partes menores, mais fáceis de testar e debugar.</p>
+        <div class="try-this">
+            <strong>🚀 Try this:</strong>
+            <p>Selecione um arquivo complexo do Django (como <code>views.py</code> ou <code>services.py</code>) e diga: <em>"Use /improve-codebase-architecture para analisar este serviço."</em></p>
+        </div>
+    </div>
+
+    <div class="skill-card">
+        <div class="skill-title">🗺️ /zoom-out</div>
+        <p><strong>Para que serve:</strong> Pede para o agente se afastar do detalhe do código e mapear as relações entre os módulos usando a linguagem de negócios do projeto.</p>
+        <p><strong>Quando usar para Debug:</strong> Quando você não tem ideia de onde o bug está vindo, ou quando herda um código que você não conhece. O mapa te ajuda a descobrir qual camada está falhando (ex: é no WebSocket? no ORM? no frontend?).</p>
+    </div>
+
+    <h2>Outras Skills Úteis para Experimentação</h2>
+    <ul>
+        <li><code>/prototype</code>: Cria um app descartável (terminal ou web) para testar uma ideia rapidamente antes de combar com o <code>/to-issues</code>. Útil para testar lógica de estado sem sujar o projeto.</li>
+        <li><code>/grill-with-docs</code>: Parecido com o <code>/grill-me</code>, mas foca em alinhar a sua ideia com a documentação existente do domínio, atualizando os arquivos <code>CONTEXT.md</code> ou ADRs simultaneamente.</li>
+    </ul>
+
+</body>
+</html>

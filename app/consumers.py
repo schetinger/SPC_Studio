@@ -54,6 +54,14 @@ class EspConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         try:
             data = json.loads(text_data)
+            
+            # Ignorar pings de heartbeat (application-level)
+            if "ping" in data:
+                return
+                
+            if "picos" not in data:
+                return
+                
             picos = data.get("picos", 0)
         except (json.JSONDecodeError, TypeError):
             return
