@@ -1,13 +1,22 @@
-## Agent skills
+# Agent Rules
 
-### Issue tracker
+As diretrizes para agentes atuando neste projeto:
 
-Issues ficam no GitHub Issues do repositório (usa o CLI `gh`). Veja `docs/agents/issue-tracker.md`.
+## Regra de Ouro do Contexto
+- Sempre leia `CONTEXT.md` para entender a arquitetura (Motor de Relatórios + API IoT de Ingestão via Polling) antes de propor qualquer mudança.
+- O propósito do sistema se encontra em `MISSION.md`.
 
-### Triage labels
+## Backend (Django)
+- **REST + Polling**: Não use WebSockets nem Channels. Toda a comunicação realtime é baseada em polling na API (com endpoints HTTP).
+- O `django.core.cache` via Redis é nossa "Single Source of Truth" para estados ultrarrápidos (ex: Alarme IoT ativado) que vivem entre requests.
+- Se for criar endpoints novos, prefira Views simples decoradas com `@csrf_exempt` em vez do peso do DRF (`djangorestframework`), a menos que o usuário exija.
+- Use sempre Test-Driven Development (via `/tdd`) antes de codar as views.
 
-Usando o vocabulário padrão: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Veja `docs/agents/triage-labels.md`.
+## Frontend & Estética
+- O UI é gerado no backend via templates (`app/templates/front/`).
+- Não usar Tailwind ou frameworks JS. O estilo é **Vanilla CSS**.
+- **Aesthetic First**: Preserve o esquema de cores premium Dark Mode (#0D1117 de fundo), bordas sutis e tipografia moderna (Inter / JetBrains Mono).
+- Use `fetch` com async/await e `setInterval` para o polling do monitoramento.
 
-### Domain docs
-
-Contexto único — `CONTEXT.md` + `docs/adr/` na raiz do repo. Veja `docs/agents/domain.md`.
+## Firmware IoT (ESP32)
+- Quando mexer no código do microcontrolador (em C++), use FreeRTOS para não bloquear a leitura de sinais analógicos (`analogRead`) durante as requisições lentas de HTTPClient.
