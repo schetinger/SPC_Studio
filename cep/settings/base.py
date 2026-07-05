@@ -15,8 +15,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne',
-    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -61,7 +59,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'cep.wsgi.application'
-ASGI_APPLICATION = 'cep.asgi.application'
 
 
 # Password validation

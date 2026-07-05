@@ -83,3 +83,111 @@ class GeradorCEP(APIView):
             )
 
     
+from django.http import JsonResponse
+from django.core.cache import cache
+from app.models import LeituraBarulho
+
+def api_browser_sync(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    # Check ESP online status
+    esp_last_seen = cache.get("esp_last_seen")
+    import time
+    esp_online = False
+    if esp_last_seen:
+        if time.time() - esp_last_seen < 10:
+            esp_online = True
+
+    # Check alarm status
+    led_ligado = cache.get("comando_alerta", False)
+
+    # Fetch history
+    leituras = LeituraBarulho.objects.order_by('-timestamp')[:25]
+    historico = []
+    for l in reversed(leituras):
+        historico.append({
+            "timestamp": l.timestamp.strftime("%H:%M"),
+            "p": round(l.p, 6),
+            "lc": round(l.lc, 6),
+            "lsc": round(l.lsc, 6),
+            "lic": round(l.lic, 6),
+            "total_picos": l.total_picos,
+            "fora_controle": l.fora_controle,
+        })
+
+    return JsonResponse({
+        "tipo": "estado_inicial",
+        "historico": historico,
+        "led_ligado": led_ligado,
+        "esp_online": esp_online,
+    })
+
+from django.views.decorators.csrf import csrf_exempt
+import json
+import time
+from app.services import AcumuladorBarulho
+
+# Instância global do acumulador (igual era no EspConsumer)
+acumulador = AcumuladorBarulho()
+
+@csrf_exempt
+def api_esp_picos(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    # Marcar ESP como online
+    cache.set("esp_last_seen", time.time(), timeout=None)
+
+    try:
+        data = json.loads(request.body)
+        if "picos" in data:
+            picos = data["picos"]
+            # Processar os picos usando a mesma lógica que estava no consumer
+            nova_leitura = acumulador.receber_envio(picos)
+            
+            # Se completou um subgrupo, salvar no banco (receber_envio já cria no banco)
+            # Então não precisamos recriar. O websocket precisa saber, mas não tem websocket.
+            # O get do browser_sync vai pegar do banco!
+
+            return JsonResponse({"ack": True})
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    return JsonResponse({"error": "Missing picos"}, status=400)
+
+@csrf_exempt
+def api_esp_status(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    # Marcar ESP como online
+    cache.set("esp_last_seen", time.time(), timeout=None)
+    
+    # Buscar status do alarme
+    led_ligado = cache.get("comando_alerta", False)
+    
+    return JsonResponse({"comando_alerta": led_ligado})
+
+@csrf_exempt
+def api_browser_comando(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        comando = data.get("comando")
+        
+        if comando == "ligar_alerta":
+            # Salvar no redis que o alarme está ligado, expirando em 30s (ou o tempo que quiser)
+            cache.set("comando_alerta", True, timeout=None)
+            return JsonResponse({"ack": True, "led_ligado": True})
+        
+        elif comando == "desligar_alerta":
+            cache.set("comando_alerta", False, timeout=None)
+            return JsonResponse({"ack": True, "led_ligado": False})
+            
+    except json.JSONDecodeError:
+        pass
+        
+    return JsonResponse({"error": "Invalid command"}, status=400)
