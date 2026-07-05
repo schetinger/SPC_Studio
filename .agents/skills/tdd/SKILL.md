@@ -53,6 +53,7 @@ Before writing any code:
 - [ ] Identify opportunities for [deep modules](deep-modules.md) (small interface, deep implementation)
 - [ ] Design interfaces for [testability](interface-design.md)
 - [ ] List the behaviors to test (not implementation steps)
+- [ ] Place tests in the `tests/` directory (e.g. `app/tests/` for Django apps).
 - [ ] Get user approval on the plan
 
 Ask: "What should the public interface look like? Which behaviors are most important to test?"
