@@ -625,123 +625,89 @@
         }
     }
 
-    // ─── LED Toggle ──────────────────────────────────────────
-    function toggleLed(checked) {
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    // ─── HTTP Polling ────────────────────────────────────────
+    let falhasConsecutivas = 0;
 
-        const comando = checked ? 'ligar_alerta' : 'desligar_alerta';
-        ws.send(JSON.stringify({ comando: comando }));
-    }
-
-    function atualizarToggleStatus(dados) {
-        const toggle = document.getElementById('toggleAlerta');
-        const display = document.getElementById('timerDisplay');
-
-        toggle.checked = dados.ligado;
-
-        if (dados.ligado) {
-            timerSeconds = dados.timer || 60;
-            iniciarTimer();
-        } else {
-            pararTimer();
-            display.textContent = '--';
-        }
-    }
-
-    function iniciarTimer() {
-        pararTimer();
-        atualizarTimerDisplay();
-        timerInterval = setInterval(() => {
-            timerSeconds--;
-            if (timerSeconds <= 0) {
-                pararTimer();
-                document.getElementById('timerDisplay').textContent = '--';
-                document.getElementById('toggleAlerta').checked = false;
-            } else {
-                atualizarTimerDisplay();
-            }
-        }, 1000);
-    }
-
-    function pararTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-    }
-
-    function atualizarTimerDisplay() {
-        const display = document.getElementById('timerDisplay');
-        display.textContent = timerSeconds + 's';
-    }
-
-    // ─── WebSocket ───────────────────────────────────────────
-    function conectarWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`${protocol}//${window.location.host}/ws/monitor/`);
-
-        ws.onopen = () => {
-            document.getElementById('wsStatus').textContent = 'Conectado';
+    async function buscarEstado() {
+        try {
+            const res = await fetch('/api/browser/sync/');
+            if (!res.ok) throw new Error('Falha na rede');
+            const data = await res.json();
+            falhasConsecutivas = 0;
+            
+            document.getElementById('wsStatus').textContent = 'Conectado (REST)';
             document.getElementById('wsStatus').style.color = '#3FB950';
-        };
 
-        ws.onclose = () => {
-            document.getElementById('wsStatus').textContent = 'Desconectado';
-            document.getElementById('wsStatus').style.color = '#F85149';
-            atualizarEspStatus(false);
-            // Reconectar após 3s
-            setTimeout(conectarWebSocket, 3000);
-        };
-
-        ws.onerror = () => {
-            document.getElementById('wsStatus').textContent = 'Erro';
-            document.getElementById('wsStatus').style.color = '#F85149';
-        };
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-
-            switch (data.tipo) {
-                case 'estado_inicial':
-                    // Carregar histórico existente
-                    if (data.historico && data.historico.length > 0) {
-                        document.getElementById('emptyChart').style.display = 'none';
-                        document.getElementById('chartP').style.display = 'block';
-                        criarGrafico(data.historico);
-                        document.getElementById('pontosGrafico').textContent = data.historico.length;
-                        const last = data.historico[data.historico.length - 1];
-                        if (last) {
-                            document.getElementById('ultimoPonto').textContent = last.timestamp;
-                            atualizarStatusBarulho(last.fora_controle);
-                        }
+            // Carregar histórico
+            if (data.historico && data.historico.length > 0) {
+                document.getElementById('emptyChart').style.display = 'none';
+                document.getElementById('chartP').style.display = 'block';
+                criarGrafico(data.historico);
+                document.getElementById('pontosGrafico').textContent = data.historico.length;
+                const last = data.historico[0]; // histórico vem do mais recente para o mais antigo, mas o chart usa do antigo para o recente?
+                // Wait, in my views I did `reversed(leituras)`. So index [0] is the oldest, and [length-1] is the newest.
+                const newest = data.historico[data.historico.length - 1];
+                if (newest) {
+                    document.getElementById('ultimoPonto').textContent = newest.timestamp;
+                    atualizarStatusBarulho(newest.fora_controle);
+                    
+                    // Atualizar limites
+                    if (chart) {
+                        const ann = chart.options.plugins.annotation.annotations;
+                        ann.lcLine.yMin = newest.lc; ann.lcLine.yMax = newest.lc;
+                        ann.lcLine.label.content = `LC = ${newest.lc.toFixed(5)}`;
+                        ann.lscLine.yMin = newest.lsc; ann.lscLine.yMax = newest.lsc;
+                        ann.lscLine.label.content = `LSC = ${newest.lsc.toFixed(5)}`;
+                        ann.licLine.yMin = newest.lic; ann.licLine.yMax = newest.lic;
+                        ann.licLine.label.content = `LIC = ${newest.lic.toFixed(5)}`;
+                        chart.update('none'); // Update without animation
                     }
-                    if (data.led_ligado) {
-                        document.getElementById('toggleAlerta').checked = true;
-                    }
-                    if (data.esp_online !== undefined) {
-                        atualizarEspStatus(data.esp_online);
-                    }
-                    break;
-
-                case 'novo_ponto':
-                    atualizarGrafico(data);
-                    break;
-
-                case 'esp_status':
-                    atualizarEspStatus(data.online);
-                    break;
-
-                case 'status_led':
-                    atualizarToggleStatus(data);
-                    break;
+                }
             }
-        };
+            
+            // Toggle do alerta (não override se o usuário estiver digitando, mas aqui é só um botão)
+            const toggle = document.getElementById('toggleAlerta');
+            if (toggle.checked !== data.led_ligado) {
+                toggle.checked = data.led_ligado;
+            }
+
+            // Atualiza status do ESP
+            if (data.esp_online !== undefined) {
+                atualizarEspStatus(data.esp_online);
+            }
+
+        } catch (error) {
+            console.error("Erro no polling:", error);
+            falhasConsecutivas++;
+            if (falhasConsecutivas > 3) {
+                document.getElementById('wsStatus').textContent = 'Desconectado';
+                document.getElementById('wsStatus').style.color = '#F85149';
+                atualizarEspStatus(false);
+            }
+        }
     }
 
     // ─── Init ────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
-        conectarWebSocket();
+        // Busca imediata e depois a cada 2 segundos
+        buscarEstado();
+        setInterval(buscarEstado, 2000);
     });
+
+    // ─── LED Toggle (REST) ──────────────────────────────────
+    async function toggleLed(checked) {
+        const comando = checked ? 'ligar_alerta' : 'desligar_alerta';
+        try {
+            await fetch('/api/browser/comando/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comando: comando })
+            });
+        } catch (error) {
+            console.error("Erro ao enviar comando", error);
+            document.getElementById('toggleAlerta').checked = !checked; // reverte em caso de erro
+        }
+    }
     </script>
 
 </body>

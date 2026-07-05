@@ -26,19 +26,16 @@ DATABASES = {
     )
 }
 
-# --- Channel Layer (Upstash Redis) ---
-# Upstash agora fornece redis:// mas precisa de TLS (rediss://)
+# --- Cache (Upstash Redis) ---
 REDIS_URL = os.environ.get('REDIS_URL', '')
 if REDIS_URL.startswith('redis://'):
     REDIS_URL = REDIS_URL.replace('redis://', 'rediss://', 1)
 
-CHANNEL_LAYERS = {
+CACHES = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [REDIS_URL],
-        },
-    },
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+    }
 }
 
 # --- Arquivos estáticos (WhiteNoise) ---
