@@ -19,12 +19,14 @@ const int pinoAudio = 34;
 
 const int LIMIAR_AMPLITUDE = 8; 
 const unsigned long JANELA_TEMPO = 30000; 
-unsigned long tempoInicial = 0;
-unsigned long ultimoStatusGet = 0; 
 
-int contadorPicos = 0;
+// Variáveis voláteis (compartilhadas entre as Tasks)
+volatile int contadorPicos = 0;
+volatile bool alarmeAtivo = false;
+volatile bool mudouStatusAlarme = false;
+volatile bool limpouContador = false;
+
 int ultimoPicoMostrado = -1; 
-bool alarmeAtivo = false;
 
 WiFiClientSecure client;
 
@@ -50,6 +52,79 @@ void atualizarTela(String status, String detalhe, bool alerta) {
   }
   display.display();
 }
+
+// =========================================================================
+// TASK DA REDE (Roda no Core 0)
+// =========================================================================
+void taskRedeCode(void * pvParameters) {
+  unsigned long ultimoStatusGet = millis();
+  unsigned long tempoInicial = millis();
+  
+  for(;;) {
+    // --- Obter Status do Alarme a cada 1 Segundo ---
+    if (millis() - ultimoStatusGet >= 1000) {
+      if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        String url = String(api_base_url) + "/api/esp/status/";
+        http.begin(client, url);
+        
+        int httpCode = http.GET();
+        if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
+          String payload = http.getString();
+          StaticJsonDocument<256> doc;
+          DeserializationError error = deserializeJson(doc, payload);
+          if (!error && doc.containsKey("comando_alerta")) {
+            bool ligar_tudo = doc["comando_alerta"].as<bool>();
+            if (ligar_tudo != alarmeAtivo) {
+              alarmeAtivo = ligar_tudo;
+              mudouStatusAlarme = true;
+            }
+          }
+        }
+        http.end();
+      }
+      ultimoStatusGet = millis();
+    }
+
+    // --- Envio de Picos a cada 30 Segundos ---
+    if (millis() - tempoInicial >= JANELA_TEMPO) {
+      // 1. Coleta e zera rapidamente para não perder contagem no outro núcleo
+      int picosParaEnviar = contadorPicos;
+      contadorPicos = 0; 
+      limpouContador = true;
+
+      // 2. Faz o envio (pode demorar alguns segundos, não vai travar o sensor!)
+      if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        String url = String(api_base_url) + "/api/esp/picos/";
+        http.begin(client, url);
+        http.addHeader("Content-Type", "application/json");
+
+        StaticJsonDocument<64> doc;
+        doc["picos"] = picosParaEnviar; 
+        char jsonString[64];
+        serializeJson(doc, jsonString);
+        
+        int httpCode = http.POST(jsonString);
+        if (httpCode > 0) {
+          Serial.printf("Dados enviados. Resposta: %d\n", httpCode);
+        } else {
+          Serial.printf("[HTTP] POST falhou, erro: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+      } else {
+        Serial.println("Não foi possível enviar dados: Wi-Fi desconectado.");
+      }
+      
+      tempoInicial = millis();
+    }
+
+    // Aguarda 50ms para não consumir 100% da CPU do Core 0 e permitir tarefas do sistema (Wi-Fi)
+    vTaskDelay(50 / portTICK_PERIOD_MS); 
+  }
+}
+// =========================================================================
+
 
 void setup() {
   Serial.begin(115200);
@@ -82,52 +157,46 @@ void setup() {
   // Configurar cliente HTTPS para ignorar verificação de certificado
   client.setInsecure();
   
-  tempoInicial = millis();
-  ultimoStatusGet = millis();
+  // Criar a Task de rede no Core 0 (O loop() padrão roda no Core 1)
+  xTaskCreatePinnedToCore(
+    taskRedeCode,   // Função que a task vai rodar
+    "TaskRede",     // Nome da task
+    10000,          // Tamanho da pilha em words
+    NULL,           // Parâmetros (nenhum)
+    1,              // Prioridade
+    NULL,           // Handle (não precisamos)
+    0               // Roda no Core 0
+  );
+
   atualizarTela(" Monitor ", "Aguardando som...", false);
 }
 
 void loop() {
-  // --- Obter Status do Alarme a cada 1 Segundo ---
-  if (millis() - ultimoStatusGet >= 1000) {
-    if (WiFi.status() == WL_CONNECTED) {
-      HTTPClient http;
-      String url = String(api_base_url) + "/api/esp/status/";
-      http.begin(client, url);
-      
-      int httpCode = http.GET();
-      if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK) {
-          String payload = http.getString();
-          StaticJsonDocument<256> doc;
-          DeserializationError error = deserializeJson(doc, payload);
-          if (!error && doc.containsKey("comando_alerta")) {
-            bool ligar_tudo = doc["comando_alerta"].as<bool>();
-            if (ligar_tudo != alarmeAtivo) {
-              alarmeAtivo = ligar_tudo;
-              if (ligar_tudo) {
-                Serial.println(">>> ALERTA RECEBIDO: LIGANDO TUDO <<<");
-                digitalWrite(pinoLed, HIGH);
-                atualizarTela("", "", true); 
-              } else {
-                Serial.println(">>> ALERTA DESLIGADO: DESLIGANDO TUDO <<<");
-                digitalWrite(pinoLed, LOW);
-                noTone(pinoSpeaker);
-                ultimoPicoMostrado = -1;
-                atualizarTela(" Ambiente ", "Monitorando picos:\n" + String(contadorPicos), false);
-              }
-            }
-          }
-        }
-      } else {
-        Serial.printf("[HTTP] GET falhou, erro: %s\n", http.errorToString(httpCode).c_str());
-      }
-      http.end();
+  // --- Atualizações do Display com base nas flags da Task de Rede ---
+  if (mudouStatusAlarme) {
+    mudouStatusAlarme = false;
+    if (alarmeAtivo) {
+      Serial.println(">>> ALERTA RECEBIDO: LIGANDO TUDO <<<");
+      digitalWrite(pinoLed, HIGH);
+      atualizarTela("", "", true); 
+    } else {
+      Serial.println(">>> ALERTA DESLIGADO: DESLIGANDO TUDO <<<");
+      digitalWrite(pinoLed, LOW);
+      noTone(pinoSpeaker);
+      ultimoPicoMostrado = contadorPicos; // Força desenhar o zero
+      atualizarTela(" Ambiente ", "Monitorando picos:\n" + String(contadorPicos), false);
     }
-    ultimoStatusGet = millis();
   }
 
-  // Comportamento do alarme sonoro
+  if (limpouContador) {
+    limpouContador = false;
+    ultimoPicoMostrado = 0;
+    if (!alarmeAtivo) {
+      atualizarTela(" Ambiente ", "Monitorando picos:\n0", false);
+    }
+  }
+
+  // --- Comportamento do alarme sonoro ---
   if (alarmeAtivo) {
     if (millis() % 600 < 300) {
       tone(pinoSpeaker, 800); 
@@ -136,7 +205,7 @@ void loop() {
     }
   }
 
-  // Leitura do microfone (50ms para achar picos)
+  // --- Leitura contínua do microfone (50ms para achar picos) ---
   int maximo = 0;
   int minimo = 4095;
   unsigned long inicioAmostra = millis();
@@ -152,42 +221,10 @@ void loop() {
   int amplitude = maximo - minimo;
 
   if (amplitude > LIMIAR_AMPLITUDE) { 
-    contadorPicos++;
+    contadorPicos++; // Acessa variável volátil
     if (!alarmeAtivo && contadorPicos != ultimoPicoMostrado) {
       atualizarTela(" Ambiente ", "Monitorando picos:\n" + String(contadorPicos), false);
       ultimoPicoMostrado = contadorPicos; 
-    }
-  }
-
-  // --- Envio de Picos a cada 30 Segundos ---
-  if (millis() - tempoInicial >= JANELA_TEMPO) {
-    if (WiFi.status() == WL_CONNECTED) {
-      HTTPClient http;
-      String url = String(api_base_url) + "/api/esp/picos/";
-      http.begin(client, url);
-      http.addHeader("Content-Type", "application/json");
-
-      StaticJsonDocument<64> doc;
-      doc["picos"] = contadorPicos; 
-      char jsonString[64];
-      serializeJson(doc, jsonString);
-      
-      int httpCode = http.POST(jsonString);
-      if (httpCode > 0) {
-        Serial.printf("Dados enviados. Resposta: %d\n", httpCode);
-      } else {
-        Serial.printf("[HTTP] POST falhou, erro: %s\n", http.errorToString(httpCode).c_str());
-      }
-      http.end();
-    } else {
-      Serial.println("Não foi possível enviar dados: Wi-Fi desconectado.");
-    }
-    
-    contadorPicos = 0;
-    ultimoPicoMostrado = -1; 
-    tempoInicial = millis();
-    if (!alarmeAtivo) {
-      atualizarTela(" Ambiente ", "Monitorando picos:\n0", false);
     }
   }
 }
