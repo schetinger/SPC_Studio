@@ -603,8 +603,6 @@
         // Update info bar
         document.getElementById('pontosGrafico').textContent = dados.historico.length;
         document.getElementById('ultimoPonto').textContent = dados.timestamp;
-        enviosCiclo = 0;
-        document.getElementById('enviosCiclo').textContent = enviosCiclo;
 
         // Update status card
         atualizarStatusBarulho(dados.fora_controle);
@@ -670,6 +668,11 @@
             const toggle = document.getElementById('toggleAlerta');
             if (toggle.checked !== data.led_ligado) {
                 toggle.checked = data.led_ligado;
+            }
+
+            // Atualiza envios no ciclo
+            if (data.enviosCiclo !== undefined) {
+                document.getElementById('enviosCiclo').textContent = data.enviosCiclo;
             }
 
             // Atualiza status do ESP na UI e no rodapé

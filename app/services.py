@@ -63,7 +63,8 @@ class AcumuladorBarulho:
         if lc > 0 and n_medio > 0:
             sigma = math.sqrt((lc * (1 - lc)) / n_medio)
             lsc = lc + 3 * sigma
-            lic = max(0, lc - 3 * sigma)
+            # o lic é zero pois silencio é vantagem nao tem porque ter limite inferior
+            lic = 0
         else:
             lsc = 0
             lic = 0

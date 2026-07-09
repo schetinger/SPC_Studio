@@ -85,7 +85,16 @@ class GeradorCEP(APIView):
     
 from django.http import JsonResponse
 from django.core.cache import cache
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+import json
+import time
+
 from app.models import LeituraBarulho
+from app.services import AcumuladorBarulho
+
+# Instância global do acumulador (igual era no EspConsumer)
+acumulador = AcumuladorBarulho()
 
 def api_browser_sync(request):
     if request.method != "GET":
@@ -107,7 +116,7 @@ def api_browser_sync(request):
     historico = []
     for l in reversed(leituras):
         historico.append({
-            "timestamp": l.timestamp.strftime("%H:%M"),
+            "timestamp": timezone.localtime(l.timestamp).strftime("%H:%M"),
             "p": round(l.p, 6),
             "lc": round(l.lc, 6),
             "lsc": round(l.lsc, 6),
@@ -121,15 +130,8 @@ def api_browser_sync(request):
         "historico": historico,
         "led_ligado": led_ligado,
         "esp_online": esp_online,
+        "enviosCiclo": len(acumulador._buffer),
     })
-
-from django.views.decorators.csrf import csrf_exempt
-import json
-import time
-from app.services import AcumuladorBarulho
-
-# Instância global do acumulador (igual era no EspConsumer)
-acumulador = AcumuladorBarulho()
 
 @csrf_exempt
 def api_esp_picos(request):
