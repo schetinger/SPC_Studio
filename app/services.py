@@ -71,7 +71,7 @@ class AcumuladorBarulho:
 
         leitura_nova.lc = round(lc, 6)
         leitura_nova.lsc = round(lsc, 6)
-        leitura_nova.lic = round(lic, 6)
+        leitura_nova.lic = 0
 
         # Calcular p do ponto atual pra aplicar regras WE
         p_atual = leitura_nova.total_picos / leitura_nova.n if leitura_nova.n > 0 else 0
