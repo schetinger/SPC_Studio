@@ -440,7 +440,7 @@
                 <div class="separator"></div>
                 <div class="stat">Último ponto: <strong id="ultimoPonto">--:--</strong></div>
                 <div class="separator"></div>
-                <div class="stat">WebSocket: <strong id="wsStatus">Conectando…</strong></div>
+                <div class="stat">API REST: <strong id="apiStatus">Conectando…</strong></div>
             </div>
         </div>
     </main>
@@ -652,9 +652,6 @@
             if (!res.ok) throw new Error('Falha na rede');
             const data = await res.json();
             falhasConsecutivas = 0;
-            
-            document.getElementById('wsStatus').textContent = 'Conectado (REST)';
-            document.getElementById('wsStatus').style.color = '#3FB950';
 
             // Carregar histórico
             if (data.historico && data.historico.length > 0) {
@@ -675,17 +672,25 @@
                 toggle.checked = data.led_ligado;
             }
 
-            // Atualiza status do ESP
+            // Atualiza status do ESP na UI e no rodapé
             if (data.esp_online !== undefined) {
                 atualizarEspStatus(data.esp_online);
+                const apiStatus = document.getElementById('apiStatus');
+                if (data.esp_online) {
+                    apiStatus.textContent = 'Online (ESP)';
+                    apiStatus.style.color = '#3FB950';
+                } else {
+                    apiStatus.textContent = 'ESP Offline';
+                    apiStatus.style.color = '#F85149';
+                }
             }
 
         } catch (error) {
             console.error("Erro no polling:", error);
             falhasConsecutivas++;
             if (falhasConsecutivas > 3) {
-                document.getElementById('wsStatus').textContent = 'Desconectado';
-                document.getElementById('wsStatus').style.color = '#F85149';
+                document.getElementById('apiStatus').textContent = 'Servidor Offline';
+                document.getElementById('apiStatus').style.color = '#F85149';
                 atualizarEspStatus(false);
             }
         }

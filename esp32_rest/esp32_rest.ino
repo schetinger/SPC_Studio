@@ -60,17 +60,23 @@ void taskRedeCode(void * pvParameters) {
   unsigned long ultimoStatusGet = millis();
   unsigned long tempoInicial = millis();
   
+  HTTPClient httpStatus;
+  bool httpStatusInit = false;
+  
   for(;;) {
     // --- Obter Status do Alarme a cada 1 Segundo ---
     if (millis() - ultimoStatusGet >= 1000) {
       if (WiFi.status() == WL_CONNECTED) {
-        HTTPClient http;
-        String url = String(api_base_url) + "/api/esp/status/";
-        http.begin(client, url);
+        if (!httpStatusInit) {
+          httpStatus.setReuse(true);
+          httpStatus.begin(client, String(api_base_url) + "/api/esp/status/");
+          httpStatusInit = true;
+        }
         
-        int httpCode = http.GET();
+        int httpCode = httpStatus.GET();
         if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
-          String payload = http.getString();
+          // getString() lê o payload inteiro e libera o socket para ser reutilizado
+          String payload = httpStatus.getString();
           StaticJsonDocument<256> doc;
           DeserializationError error = deserializeJson(doc, payload);
           if (!error && doc.containsKey("comando_alerta")) {
@@ -80,8 +86,13 @@ void taskRedeCode(void * pvParameters) {
               mudouStatusAlarme = true;
             }
           }
+        } else if (httpCode < 0) {
+          // Erro de conexão (ex: servidor fechou por timeout). Reinicia no próximo loop.
+          Serial.printf("[HTTP] GET falhou, erro: %s\n", httpStatus.errorToString(httpCode).c_str());
+          httpStatus.end();
+          httpStatusInit = false;
         }
-        http.end();
+        // NÃO chamamos http.end() em caso de sucesso (HTTP_CODE_OK) para o Keep-Alive funcionar
       }
       ultimoStatusGet = millis();
     }
