@@ -33,8 +33,8 @@ if REDIS_URL.startswith('redis://'):
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': REDIS_URL,
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'spc-cache',
     }
 }
 
