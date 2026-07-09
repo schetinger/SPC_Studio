@@ -108,6 +108,7 @@ void taskRedeCode(void * pvParameters) {
         int httpCode = http.POST(jsonString);
         if (httpCode > 0) {
           Serial.printf("Dados enviados. Resposta: %d\n", httpCode);
+          Serial.println("Picos enviados: " + String(picosParaEnviar));
         } else {
           Serial.printf("[HTTP] POST falhou, erro: %s\n", http.errorToString(httpCode).c_str());
         }
