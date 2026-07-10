@@ -120,7 +120,7 @@ def api_browser_sync(request):
             "p": round(l.p, 6),
             "lc": round(l.lc, 6),
             "lsc": round(l.lsc, 6),
-            "lic": round(l.lic, 6),
+            "lic": 0,
             "total_picos": l.total_picos,
             "fora_controle": l.fora_controle,
         })
