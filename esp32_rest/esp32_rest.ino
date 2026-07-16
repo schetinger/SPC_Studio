@@ -37,10 +37,17 @@ volatile float ultimoLeq = 0.0;
 volatile bool alarmeAtivo = false;
 volatile bool mudouStatusAlarme = false;
 
-// Offset para aproximar dBFS de dB SPL (Ajuste conforme necessidade)
-const float OFFSET_DB = 149.0; 
+// Offset para aproximar dBFS de dB SPL.
+// INMP441 tem sensibilidade de -26 dBFS para 94 dB SPL. Portanto, 0 dBFS = 120 dB SPL.
+const float OFFSET_DB = 120.0; 
 
 WiFiClientSecure client;
+
+// Variáveis para o gráfico em tempo real
+#define GRAPH_WIDTH 128
+uint8_t graph_data[GRAPH_WIDTH];
+unsigned long ultimoUpdateGrafico = 0;
+float dbspl_atual = 0.0;
 
 void atualizarTela(String status, String detalhe, bool alerta) {
   display.clearDisplay();
@@ -62,6 +69,48 @@ void atualizarTela(String status, String detalhe, bool alerta) {
     display.setCursor(0, 40);
     display.println(detalhe);
   }
+  display.display();
+}
+
+void atualizarGraficoRealTime(float db) {
+  // Move os dados para a esquerda
+  for (int i = 0; i < GRAPH_WIDTH - 1; i++) {
+    graph_data[i] = graph_data[i + 1];
+  }
+  
+  // Mapeia o dB (ex: 30 a 100 dB) para a altura do gráfico (0 a 30 pixels na base da tela)
+  int y = map((int)db, 30, 110, 0, 30);
+  if (y < 0) y = 0;
+  if (y > 30) y = 30;
+  
+  graph_data[GRAPH_WIDTH - 1] = y;
+
+  display.clearDisplay();
+  
+  // Desenha os textos
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print("Tempo Real:");
+  display.setTextSize(2);
+  display.setCursor(70, 0);
+  display.print((int)db);
+  display.print("dB");
+  
+  // Desenha o Max do ciclo
+  display.setTextSize(1);
+  display.setCursor(0, 15);
+  display.print("Max(30s): ");
+  float mx = (picoMaximo_dB > 0) ? picoMaximo_dB : 0;
+  display.print(mx, 1);
+  display.print("dB");
+
+  // Desenha a linha do gráfico
+  for (int i = 0; i < GRAPH_WIDTH - 1; i++) {
+    // 63 é a base da tela, subtraímos y para ir pra cima
+    display.drawLine(i, 63 - graph_data[i], i + 1, 63 - graph_data[i + 1], SSD1306_WHITE);
+  }
+  
   display.display();
 }
 
@@ -142,10 +191,9 @@ void taskRedeCode(void * pvParameters) {
       
       float leqEnvio = 0;
       if (energiaMedia > 0) {
-          // RMS
           float rms = sqrt(energiaMedia);
-          // Convert to dBFS
-          float dbfs = 20.0 * log10(rms / 2147483648.0); // max 32 bit value is 2^31
+          if (rms < 1e-9) rms = 1e-9;
+          float dbfs = 20.0 * log10(rms); 
           leqEnvio = dbfs + OFFSET_DB;
       }
       if (leqEnvio < 0) leqEnvio = 0;
@@ -158,9 +206,9 @@ void taskRedeCode(void * pvParameters) {
       contadorAmostras = 0;
       picoMaximo_dB = -999.0;
       
-      // Mostrar na tela
+      // Mostrar na tela apenas se alarme desligado (agora a maior parte é em tempo real)
       if (!alarmeAtivo) {
-        atualizarTela(" Ambiente ", "Ruido (30s):\nLeq: " + String(leqEnvio, 1) + "dB\nMax: " + String(lmaxEnvio, 1) + "dB", false);
+        // atualizarTela(" Ambiente ", "Ruido (30s):\nLeq: " + String(leqEnvio, 1) + "dB\nMax: " + String(lmaxEnvio, 1) + "dB", false);
       }
 
       // 2. Faz o envio
@@ -237,6 +285,11 @@ void setup() {
     0
   );
 
+  // Inicializa o array do gráfico com 0
+  for (int i = 0; i < GRAPH_WIDTH; i++) {
+    graph_data[i] = 0;
+  }
+  
   atualizarTela(" Monitor ", "Aguardando som...", false);
 }
 
@@ -252,7 +305,7 @@ void loop() {
       Serial.println(">>> ALERTA DESLIGADO: DESLIGANDO TUDO <<<");
       digitalWrite(pinoLed, LOW);
       noTone(pinoSpeaker);
-      atualizarTela(" Ambiente ", "Ruido (30s):\nLeq: " + String(ultimoLeq, 1) + "dB", false);
+      // Volta pro gráfico automaticamente no loop
     }
   }
 
@@ -274,10 +327,18 @@ void loop() {
   int samples_read = bytes_read / sizeof(int32_t);
   
   if (samples_read > 0) {
-    float sum_squares = 0;
-    
+    // 1. Calcular a média (DC Offset)
+    float sum = 0;
     for (int i = 0; i < samples_read; i++) {
-        float sample = (float)samples[i];
+        // O valor do INMP441 é left-justified. Podemos pegar o valor float dividindo por 2^31
+        sum += ((float)samples[i] / 2147483648.0f);
+    }
+    float mean = sum / samples_read;
+    
+    // 2. Calcular a energia AC (variância) removendo o DC offset
+    float sum_squares = 0;
+    for (int i = 0; i < samples_read; i++) {
+        float sample = ((float)samples[i] / 2147483648.0f) - mean;
         sum_squares += (sample * sample);
     }
     
@@ -290,12 +351,20 @@ void loop() {
     // Lmax desta pequena amostra (RMS)
     if (mean_square > 0) {
         float rms = sqrt(mean_square);
-        float dbfs = 20.0 * log10(rms / 2147483648.0);
+        if (rms < 1e-9) rms = 1e-9;
+        float dbfs = 20.0 * log10(rms);
         float dbspl = dbfs + OFFSET_DB;
         
         if (dbspl > picoMaximo_dB) {
             picoMaximo_dB = dbspl;
         }
+        dbspl_atual = dbspl;
     }
+  }
+
+  // --- Atualiza o Gráfico no OLED (sem travar o I2S) ---
+  if (!alarmeAtivo && millis() - ultimoUpdateGrafico > 100) {
+      atualizarGraficoRealTime(dbspl_atual);
+      ultimoUpdateGrafico = millis();
   }
 }
