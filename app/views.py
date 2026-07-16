@@ -90,11 +90,11 @@ from django.utils import timezone
 import json
 import time
 
-from app.models import LeituraBarulho
-from app.services import AcumuladorBarulho
+from app.models import LeituraRuido
+from app.services import AcumuladorRuido
 
 # Instância global do acumulador (igual era no EspConsumer)
-acumulador = AcumuladorBarulho()
+acumulador = AcumuladorRuido()
 
 def api_browser_sync(request):
     if request.method != "GET":
@@ -112,16 +112,16 @@ def api_browser_sync(request):
     led_ligado = cache.get("comando_alerta", False)
 
     # Fetch history
-    leituras = LeituraBarulho.objects.order_by('-timestamp')[:25]
+    leituras = LeituraRuido.objects.order_by('-timestamp')[:25]
     historico = []
     for l in reversed(leituras):
         historico.append({
             "timestamp": timezone.localtime(l.timestamp).strftime("%H:%M"),
-            "p": round(l.p, 6),
-            "lc": round(l.lc, 6),
-            "lsc": round(l.lsc, 6),
-            "lic": 0,
-            "total_picos": l.total_picos,
+            "leq": l.leq,
+            "lmax": l.lmax,
+            "lc_i": l.lc_i,
+            "lsc_i": l.lsc_i,
+            "lic_i": l.lic_i,
             "fora_controle": l.fora_controle,
         })
 
@@ -130,7 +130,7 @@ def api_browser_sync(request):
         "historico": historico,
         "led_ligado": led_ligado,
         "esp_online": esp_online,
-        "enviosCiclo": len(acumulador._buffer),
+        "enviosCiclo": len(acumulador._buffer_leq),
     })
 
 @csrf_exempt
@@ -143,20 +143,20 @@ def api_esp_picos(request):
 
     try:
         data = json.loads(request.body)
-        if "picos" in data:
-            picos = data["picos"]
-            # Processar os picos usando a mesma lógica que estava no consumer
-            nova_leitura = acumulador.receber_envio(picos)
+        if "leq" in data and "lmax" in data:
+            leq = float(data["leq"])
+            lmax = float(data["lmax"])
+            # Processar o ruido
+            nova_leitura = acumulador.receber_envio(leq, lmax)
             
             # Se completou um subgrupo, salvar no banco (receber_envio já cria no banco)
-            # Então não precisamos recriar. O websocket precisa saber, mas não tem websocket.
             # O get do browser_sync vai pegar do banco!
 
             return JsonResponse({"ack": True})
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON or numbers"}, status=400)
     
-    return JsonResponse({"error": "Missing picos"}, status=400)
+    return JsonResponse({"error": "Missing leq or lmax"}, status=400)
 
 @csrf_exempt
 def api_esp_status(request):

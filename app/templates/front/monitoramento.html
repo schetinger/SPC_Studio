@@ -403,11 +403,11 @@
             <!-- Chart -->
             <div class="chart-container">
                 <div class="chart-header">
-                    <h2>Carta P — Proporção de Picos de Barulho</h2>
+                    <h2>Carta I-MR — Nível Equivalente de Ruído (Leq)</h2>
                     <div class="chart-legend">
                         <div class="legend-item">
                             <span class="legend-dot" style="background:#58A6FF"></span>
-                            Pontos p
+                            Pontos Leq
                         </div>
                         <div class="legend-item">
                             <span class="legend-line" style="background:#3FB950"></span>
@@ -459,22 +459,22 @@
         const ctx = document.getElementById('chartP').getContext('2d');
 
         const labels = historico.map(h => h.timestamp);
-        const dataP = historico.map(h => h.p);
+        const dataP = historico.map(h => h.leq);
         const pointColors = historico.map(h => h.fora_controle ? '#F85149' : '#58A6FF');
         const pointRadius = historico.map(h => h.fora_controle ? 6 : 4);
 
         // Use limits from last point if available
         const lastPt = historico[historico.length - 1];
-        const lc = lastPt ? lastPt.lc || 0 : 0;
-        const lsc = lastPt ? lastPt.lsc || 0 : 0;
-        const lic = lastPt ? lastPt.lic || 0 : 0;
+        const lc = lastPt ? lastPt.lc_i || 0 : 0;
+        const lsc = lastPt ? lastPt.lsc_i || 0 : 0;
+        const lic = lastPt ? lastPt.lic_i || 0 : 0;
 
         chart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Proporção p',
+                    label: 'Nível Equivalente (Leq) dB',
                     data: dataP,
                     borderColor: '#58A6FF',
                     backgroundColor: 'rgba(88, 166, 255, 0.1)',
@@ -501,7 +501,7 @@
                         ticks: {
                             color: '#8B949E',
                             font: { family: 'JetBrains Mono', size: 11 },
-                            callback: v => v.toFixed(4),
+                            callback: v => v.toFixed(1) + ' dB',
                         },
                         beginAtZero: true,
                     }
@@ -515,7 +515,7 @@
                         borderColor: '#30363D',
                         borderWidth: 1,
                         callbacks: {
-                            label: ctx => `p = ${ctx.parsed.y.toFixed(6)}`,
+                            label: ctx => `Leq = ${ctx.parsed.y.toFixed(1)} dB`,
                         }
                     },
                     annotation: {
@@ -583,19 +583,19 @@
             // Update data
             const historico = dados.historico;
             chart.data.labels = historico.map(h => h.timestamp);
-            chart.data.datasets[0].data = historico.map(h => h.p);
+            chart.data.datasets[0].data = historico.map(h => h.leq);
             chart.data.datasets[0].pointBackgroundColor = historico.map(h => h.fora_controle ? '#F85149' : '#58A6FF');
             chart.data.datasets[0].pointBorderColor = historico.map(h => h.fora_controle ? '#F85149' : '#58A6FF');
             chart.data.datasets[0].pointRadius = historico.map(h => h.fora_controle ? 6 : 4);
 
             // Update annotation lines
             const ann = chart.options.plugins.annotation.annotations;
-            ann.lcLine.yMin = dados.lc; ann.lcLine.yMax = dados.lc;
-            ann.lcLine.label.content = `LC = ${dados.lc.toFixed(5)}`;
-            ann.lscLine.yMin = dados.lsc; ann.lscLine.yMax = dados.lsc;
-            ann.lscLine.label.content = `LSC = ${dados.lsc.toFixed(5)}`;
-            ann.licLine.yMin = dados.lic; ann.licLine.yMax = dados.lic;
-            ann.licLine.label.content = `LIC = ${dados.lic.toFixed(5)}`;
+            ann.lcLine.yMin = dados.lc_i; ann.lcLine.yMax = dados.lc_i;
+            ann.lcLine.label.content = `LC = ${dados.lc_i.toFixed(1)}`;
+            ann.lscLine.yMin = dados.lsc_i; ann.lscLine.yMax = dados.lsc_i;
+            ann.lscLine.label.content = `LSC = ${dados.lsc_i.toFixed(1)}`;
+            ann.licLine.yMin = dados.lic_i; ann.licLine.yMax = dados.lic_i;
+            ann.licLine.label.content = `LIC = ${dados.lic_i.toFixed(1)}`;
 
             chart.update('default');
         }
@@ -658,9 +658,9 @@
                     historico: data.historico,
                     timestamp: newest.timestamp,
                     fora_controle: newest.fora_controle,
-                    lc: newest.lc,
-                    lsc: newest.lsc,
-                    lic: newest.lic
+                    lc_i: newest.lc_i,
+                    lsc_i: newest.lsc_i,
+                    lic_i: newest.lic_i
                 });
             }
             

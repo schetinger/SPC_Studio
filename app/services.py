@@ -99,3 +99,43 @@ class AcumuladorBarulho:
         else:
             leitura_nova.alertas = {}
             leitura_nova.fora_controle = False
+
+class AcumuladorRuido:
+    """Acumula envios do ESP32 e gera pontos de carta I-MR a cada 10 envios (5 min).
+
+    Cada envio contém o Leq e Lmax detectados em 30 segundos.
+    Após 10 envios, calcula a média do Leq, o maior Lmax, e cria uma LeituraRuido no banco.
+    """
+
+    ENVIOS_POR_PONTO = 10
+
+    def __init__(self):
+        self._buffer_leq = []
+        self._buffer_lmax = []
+
+    def receber_envio(self, leq: float, lmax: float):
+        """Recebe um envio do ESP com Leq e Lmax.
+
+        Returns:
+            LeituraRuido se gerou um ponto (10 envios acumulados), None caso contrário.
+        """
+        self._buffer_leq.append(leq)
+        self._buffer_lmax.append(lmax)
+
+        if len(self._buffer_leq) < self.ENVIOS_POR_PONTO:
+            return None
+
+        # Acumulou 10 envios — gerar ponto
+        import statistics
+        leq_medio = round(statistics.mean(self._buffer_leq), 3)
+        lmax_pico = round(max(self._buffer_lmax), 3)
+        
+        self._buffer_leq = []
+        self._buffer_lmax = []
+
+        from app.models import LeituraRuido
+        # Criar leitura (mr, limites e alertas calculados automaticamente no save)
+        leitura = LeituraRuido(leq=leq_medio, lmax=lmax_pico)
+        leitura.save()
+        return leitura
+

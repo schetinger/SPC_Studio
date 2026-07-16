@@ -1,7 +1,8 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 import json
 
+@override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}})
 class ApiTests(TestCase):
     def setUp(self):
         from django.core.cache import cache
@@ -17,10 +18,10 @@ class ApiTests(TestCase):
         self.assertFalse(data['esp_online'])
         self.assertIsInstance(data['historico'], list)
 
-    def test_esp_envia_picos(self):
-        # 1. ESP sends picos 10 times to complete a point
+    def test_esp_envia_ruido(self):
+        # 1. ESP sends leq and lmax 10 times to complete a point
         for i in range(10):
-            response = self.client.post('/api/esp/picos/', json.dumps({"picos": 42}), content_type="application/json")
+            response = self.client.post('/api/esp/picos/', json.dumps({"leq": 65.0, "lmax": 80.0}), content_type="application/json")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()['ack'], True)
 
@@ -28,7 +29,8 @@ class ApiTests(TestCase):
         sync_resp = self.client.get('/api/browser/sync/')
         data = sync_resp.json()
         self.assertEqual(len(data['historico']), 1)
-        self.assertEqual(data['historico'][0]['total_picos'], 420)
+        self.assertEqual(data['historico'][0]['leq'], 65.0)
+        self.assertEqual(data['historico'][0]['lmax'], 80.0)
         
         # 3. ESP should be marked online
         self.assertTrue(data['esp_online'])

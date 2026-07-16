@@ -453,3 +453,64 @@ class LeituraBarulho(models.Model):
     def __str__(self):
         return f"Leitura {self.timestamp}: p={self.p:.4f}"
 
+class LeituraRuido(models.Model):
+    """Um ponto na carta I-MR de ruído: 5 minutos de dados consolidados de Leq e Lmax."""
+    timestamp = models.DateTimeField(auto_now_add=True)
+    leq = models.FloatField(default=0)
+    lmax = models.FloatField(default=0)
+    
+    # Valores do Gráfico I-MR
+    mr = models.FloatField(default=0)       # Amplitude móvel (diferença absoluta para a leitura anterior)
+    lc_i = models.FloatField(default=0)     # Média acumulada (Linha Central do I)
+    lsc_i = models.FloatField(default=0)    # Limite Superior de Controle do I
+    lic_i = models.FloatField(default=0)    # Limite Inferior de Controle do I
+    am_media = models.FloatField(default=0) # Amplitude Móvel Média (Linha Central do MR)
+    
+    # Status
+    alertas = models.JSONField(default=dict)
+    fora_controle = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # Apenas calcula os limites se for uma nova criação
+        if not self.pk:
+            ultima_leitura = LeituraRuido.objects.order_by('-timestamp').first()
+            if ultima_leitura:
+                # Calcular MR (Amplitude Móvel)
+                self.mr = round(abs(self.leq - ultima_leitura.leq), 3)
+                
+                # Obter todas as leituras para média global
+                leituras_anteriores = list(LeituraRuido.objects.all().values_list('leq', 'mr'))
+                todos_leq = [l[0] for l in leituras_anteriores] + [self.leq]
+                
+                # Para am_media, ignoramos o MR da primeira leitura se foi 0, 
+                # mas na verdade todos os MR validos contam.
+                # A primeira leitura terá MR=0 no nosso teste. 
+                # Ideal é só somar os MRs das leituras que tem anterior.
+                todos_mr = [l[1] for l in leituras_anteriores if l[1] > 0]
+                if self.mr > 0:
+                    todos_mr.append(self.mr)
+                    
+                import statistics
+                self.lc_i = round(statistics.mean(todos_leq), 3)
+                
+                if todos_mr:
+                    self.am_media = round(statistics.mean(todos_mr), 3)
+                else:
+                    self.am_media = 0.0
+                    
+                e2 = 2.66
+                self.lsc_i = round(self.lc_i + (e2 * self.am_media), 3)
+                self.lic_i = round(self.lc_i - (e2 * self.am_media), 3)
+            else:
+                # Primeira leitura
+                self.mr = 0.0
+                self.lc_i = self.leq
+                self.lsc_i = self.leq
+                self.lic_i = self.leq
+                self.am_media = 0.0
+                
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"LeituraRuido {self.timestamp}: Leq={self.leq}dB"
+
